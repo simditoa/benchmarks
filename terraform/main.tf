@@ -24,10 +24,11 @@ resource "google_compute_firewall" "ssh" {
 }
 
 resource "google_compute_instance" "bench" {
-  name         = local.instance_name
-  machine_type = var.machine_type
-  zone         = var.zone
-  tags         = [local.network_tag]
+  name             = local.instance_name
+  machine_type     = var.machine_type
+  zone             = var.zone
+  tags             = [local.network_tag]
+  min_cpu_platform = var.min_cpu_platform != "" ? var.min_cpu_platform : null
 
   boot_disk {
     initialize_params {

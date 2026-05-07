@@ -4,13 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       machine_type:
-        description: "GCE machine type"
+        description: "GCE machine type (c3-* for Sapphire Rapids w/ AVX-512 IFMA+VBMI)"
         required: false
-        default: "n2-standard-96"
+        default: "c3-standard-8"
       zone:
         description: "GCP zone"
         required: false
         default: "us-central1-a"
+      min_cpu_platform:
+        description: "Optional min CPU platform (e.g. 'Intel Ice Lake'). Leave blank for default."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -77,6 +81,7 @@ jobs:
             -var "project_id=${{ secrets.GCP_PROJECT_ID }}" \
             -var "zone=${{ inputs.zone }}" \
             -var "machine_type=${{ inputs.machine_type }}" \
+            -var "min_cpu_platform=${{ inputs.min_cpu_platform }}" \
             -var "ssh_user=${SSH_USER}" \
             -var "ssh_pubkey=${SSH_PUBKEY}" \
             -var "name_suffix=gh${{ github.run_id }}"
@@ -169,6 +174,7 @@ jobs:
             -var "project_id=${{ secrets.GCP_PROJECT_ID }}" \
             -var "zone=${{ inputs.zone }}" \
             -var "machine_type=${{ inputs.machine_type }}" \
+            -var "min_cpu_platform=${{ inputs.min_cpu_platform }}" \
             -var "ssh_user=${SSH_USER}" \
             -var "ssh_pubkey=${SSH_PUBKEY:-dummy}" \
             -var "name_suffix=gh${{ github.run_id }}"

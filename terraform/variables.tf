@@ -18,7 +18,13 @@ variable "zone" {
 variable "machine_type" {
   description = "GCE machine type."
   type        = string
-  default     = "n2-standard-96"
+  default     = "c3-standard-8"
+}
+
+variable "min_cpu_platform" {
+  description = "Optional minimum CPU platform (e.g. 'Intel Ice Lake'). Leave empty to use the GCE default."
+  type        = string
+  default     = ""
 }
 
 variable "ssh_user" {

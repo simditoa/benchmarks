@@ -70,7 +70,7 @@ def main() -> int:
         return 1
 
     model = os.environ.get("OPENAI_MODEL", "gpt-4.1")
-    machine_type = os.environ.get("BENCH_MACHINE_TYPE", "n2-standard-96")
+    machine_type = os.environ.get("BENCH_MACHINE_TYPE", "c3-standard-8")
     vm_zone = os.environ.get("BENCH_VM_ZONE", "us-central1-a")
 
     client = OpenAI(api_key=api_key)

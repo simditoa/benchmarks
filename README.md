@@ -4,7 +4,7 @@ Benchmarks for 64-bit integer-to-string conversion implementations, built on top
 
 ## Latest results
 
-See [RESULTS.md](./RESULTS.md) for the latest run on a GCP `n2-standard-96` VM, summarized via the OpenAI API.
+See [RESULTS.md](./RESULTS.md) for the latest run on a GCP C3 (Sapphire Rapids, AVX-512 IFMA + VBMI) VM, summarized via the OpenAI API. Default machine type is `c3-standard-8`; trigger the workflow with a custom `machine_type` input to use a larger one.
 
 To produce a fresh run, trigger the **Run benchmark on GCP** workflow under GitHub Actions. Required repository secrets: `GCP_SA_KEY` (service account JSON with Compute Admin), `GCP_PROJECT_ID`, `OPENAI_API_KEY`. See [`.github/workflows/benchmark.yml`](./.github/workflows/benchmark.yml) and [`terraform/`](./terraform/) for the full pipeline.
 
