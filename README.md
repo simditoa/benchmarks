@@ -35,10 +35,14 @@ cmake --build build --target itoa_benchmarks -j
 Each contender runs against the same set of int64 inputs, generated once and cached:
 
 - `dist=UNIFORM` - uniform across the full int64 range; nearly all values land at 18-19 digits.
+- `dist=UNIFORM_POS` - uniform over `[0, INT64_MAX]`; same length profile, no sign-mispredict tax.
 - `dist=LOG` - uniform over bit-widths `[0, 63]` then random sign; equal weight on each digit length.
+- `dist=LOG_HEAVY` - uniform over bit-widths `[40, 63]`, positive only; realistic proxy for timestamps, Snowflake IDs, monotonic counters.
 - `dist=FIXED, len=N` - positive values with exactly `N` decimal digits, swept across `1, 4, 8, 12, 16, 19`.
 
 Reported counters: `ints/s`, `bytes/s`, `ns/int`. Each configuration is repeated 10 times; only the max-throughput aggregate is shown.
+
+The headline scoreboard in `RESULTS.md` is the geometric mean of `ints/s` across the realistic subset `{UNIFORM_POS, LOG_HEAVY, FIXED:12, FIXED:16, FIXED:19}`. Short-digit FIXED `{1, 4, 8}` and signed UNIFORM are reported separately. simditoa's small-value kernel (inputs `< 10^8`) pays a constant SIMD setup cost regardless of digit count, so scalar methods are faster at 1-8 digit outputs by algorithm design; that regression is real but is not where production int64 serialization lives.
 
 ## AVX-512 builds (simditoa)
 

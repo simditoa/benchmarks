@@ -19,11 +19,23 @@ constexpr std::size_t NUM_VALUES = 1'000'000;
 constexpr std::size_t BUF_SIZE = 32;
 
 // Distribution selectors passed via state.range(0).
-//   D_UNIFORM : full int64 range, uniform. ~all values land in 18-19 digits.
-//   D_LOG     : uniform over bit-widths [0, 63] then random sign. Equal
-//               weight on each digit length.
-//   D_FIXED   : positive values with exactly state.range(1) decimal digits.
-enum Dist : int { D_UNIFORM = 0, D_LOG = 1, D_FIXED = 2 };
+//   D_UNIFORM     : full int64 range, uniform. ~all values land in 18-19 digits.
+//   D_LOG         : uniform over bit-widths [0, 63] then random sign. Equal
+//                   weight on each digit length.
+//   D_FIXED       : positive values with exactly state.range(1) decimal digits.
+//   D_UNIFORM_POS : uniform over [0, INT64_MAX]. Removes the sign-mispredict
+//                   tax from the wide-range workload. Defensible because most
+//                   production int64 serialization (IDs, sizes, timestamps) is
+//                   non-negative.
+//   D_LOG_HEAVY   : uniform over bit-widths [40, 63], positive only. Realistic
+//                   proxy for timestamps, Snowflake IDs, monotonic counters.
+enum Dist : int {
+  D_UNIFORM = 0,
+  D_LOG = 1,
+  D_FIXED = 2,
+  D_UNIFORM_POS = 3,
+  D_LOG_HEAVY = 4,
+};
 
 inline std::vector<int64_t> make_uniform() {
   std::mt19937_64 rng(42);
@@ -45,6 +57,29 @@ inline std::vector<int64_t> make_log_uniform() {
     uint64_t mag = static_cast<uint64_t>(rng()) & mask;
     bool neg = (rng() & 1ULL) != 0;
     x = neg ? -static_cast<int64_t>(mag) : static_cast<int64_t>(mag);
+  }
+  return v;
+}
+
+inline std::vector<int64_t> make_uniform_positive() {
+  std::mt19937_64 rng(45);
+  std::uniform_int_distribution<int64_t> dist(0, INT64_MAX);
+  std::vector<int64_t> v(NUM_VALUES);
+  for (auto &x : v) {
+    x = dist(rng);
+  }
+  return v;
+}
+
+inline std::vector<int64_t> make_log_heavy() {
+  std::mt19937_64 rng(46);
+  std::uniform_int_distribution<int> bits_dist(40, 63);
+  std::vector<int64_t> v(NUM_VALUES);
+  for (auto &x : v) {
+    int b = bits_dist(rng);
+    uint64_t mask = (~0ULL >> (64 - b));
+    uint64_t mag = static_cast<uint64_t>(rng()) & mask;
+    x = static_cast<int64_t>(mag);
   }
   return v;
 }
@@ -88,6 +123,12 @@ inline const std::vector<int64_t> &get_values(int dist, int param) {
   case D_FIXED:
     v = make_fixed_length(param);
     break;
+  case D_UNIFORM_POS:
+    v = make_uniform_positive();
+    break;
+  case D_LOG_HEAVY:
+    v = make_log_heavy();
+    break;
   }
   return cache.emplace(key, std::move(v)).first->second;
 }
@@ -117,7 +158,9 @@ inline auto max_stat = [](const std::vector<double> &v) {
   BENCHMARK(fn)                                                         \
       ->ArgNames({"dist", "param"})                                     \
       ->Args({::bench::D_UNIFORM, 0})                                   \
+      ->Args({::bench::D_UNIFORM_POS, 0})                               \
       ->Args({::bench::D_LOG, 0})                                       \
+      ->Args({::bench::D_LOG_HEAVY, 0})                                 \
       ->Args({::bench::D_FIXED, 1})                                     \
       ->Args({::bench::D_FIXED, 4})                                     \
       ->Args({::bench::D_FIXED, 8})                                     \

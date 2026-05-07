@@ -26,7 +26,7 @@ concurrency:
 env:
   TF_DIR: terraform
   SSH_USER: bench
-  OPENAI_MODEL: gpt-4.1
+  OPENAI_MODEL: gpt-5.4-mini
 
 jobs:
   bench:
