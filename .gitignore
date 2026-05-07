@@ -1,0 +1,32 @@
+build/
+build-*/
+.cache/
+.vscode/
+.idea/
+.DS_Store
+compile_commands.json
+*.swp
+
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Workflow artifacts
+bench-output.txt
+
+# Local secrets / keys
+*.pem
+*.key
+id_ed25519*
+id_rsa*

@@ -1,0 +1,174 @@
+name: Run benchmark on GCP
+
+on:
+  workflow_dispatch:
+    inputs:
+      machine_type:
+        description: "GCE machine type"
+        required: false
+        default: "n2-standard-96"
+      zone:
+        description: "GCP zone"
+        required: false
+        default: "us-central1-a"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: benchmark-gcp
+  cancel-in-progress: false
+
+env:
+  TF_DIR: terraform
+  SSH_USER: bench
+  OPENAI_MODEL: gpt-4.1
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install summarizer dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.5"
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Generate ephemeral SSH keypair
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keygen -t ed25519 -N "" -f ~/.ssh/bench_key -C "${SSH_USER}@github-actions"
+          chmod 600 ~/.ssh/bench_key
+          echo "SSH_PUBKEY<<EOF" >> "$GITHUB_ENV"
+          cat ~/.ssh/bench_key.pub >> "$GITHUB_ENV"
+          echo "EOF" >> "$GITHUB_ENV"
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init -input=false
+
+      - name: Terraform apply
+        id: tf_apply
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform apply -auto-approve -input=false \
+            -var "project_id=${{ secrets.GCP_PROJECT_ID }}" \
+            -var "zone=${{ inputs.zone }}" \
+            -var "machine_type=${{ inputs.machine_type }}" \
+            -var "ssh_user=${SSH_USER}" \
+            -var "ssh_pubkey=${SSH_PUBKEY}" \
+            -var "name_suffix=gh${{ github.run_id }}"
+          {
+            echo "vm_name=$(terraform output -raw vm_name)"
+            echo "vm_zone=$(terraform output -raw vm_zone)"
+            echo "vm_external_ip=$(terraform output -raw vm_external_ip)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Wait for SSH to come up
+        env:
+          VM_IP: ${{ steps.tf_apply.outputs.vm_external_ip }}
+        run: |
+          for i in $(seq 1 30); do
+            if ssh -i ~/.ssh/bench_key \
+                   -o StrictHostKeyChecking=no \
+                   -o UserKnownHostsFile=/dev/null \
+                   -o ConnectTimeout=5 \
+                   -o BatchMode=yes \
+                   "${SSH_USER}@${VM_IP}" "echo ready" >/dev/null 2>&1; then
+              echo "SSH is up after ${i} attempts"
+              exit 0
+            fi
+            echo "SSH not ready yet (attempt ${i}); sleeping 5s..."
+            sleep 5
+          done
+          echo "ERROR: SSH never came up" >&2
+          exit 1
+
+      - name: Upload repo to VM
+        env:
+          VM_IP: ${{ steps.tf_apply.outputs.vm_external_ip }}
+        run: |
+          ssh -i ~/.ssh/bench_key \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              "${SSH_USER}@${VM_IP}" "rm -rf ~/repo && mkdir -p ~/repo"
+          tar --exclude='./.git' --exclude='./build' -cz . | \
+            ssh -i ~/.ssh/bench_key \
+                -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                "${SSH_USER}@${VM_IP}" "tar -xz -C ~/repo"
+
+      - name: Run benchmark on VM
+        env:
+          VM_IP: ${{ steps.tf_apply.outputs.vm_external_ip }}
+          MACHINE_TYPE: ${{ inputs.machine_type }}
+        run: |
+          ssh -i ~/.ssh/bench_key \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              "${SSH_USER}@${VM_IP}" \
+              "cd ~/repo && BENCH_MACHINE_TYPE='${MACHINE_TYPE}' bash scripts/run-bench.sh" \
+              | tee bench-output.txt
+
+      - name: Summarize benchmark output
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          BENCH_MACHINE_TYPE: ${{ inputs.machine_type }}
+          BENCH_VM_ZONE: ${{ inputs.zone }}
+        run: python scripts/summarize.py bench-output.txt RESULTS.md
+
+      - name: Commit RESULTS.md
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- RESULTS.md; then
+            echo "RESULTS.md unchanged; nothing to commit."
+            exit 0
+          fi
+          git add RESULTS.md
+          git commit -m "chore: update RESULTS.md from benchmark run ${{ github.run_id }}"
+          git push origin HEAD:${{ github.ref_name }}
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-output-${{ github.run_id }}
+          path: |
+            bench-output.txt
+            RESULTS.md
+          if-no-files-found: warn
+
+      - name: Terraform destroy
+        if: always()
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform destroy -auto-approve -input=false \
+            -var "project_id=${{ secrets.GCP_PROJECT_ID }}" \
+            -var "zone=${{ inputs.zone }}" \
+            -var "machine_type=${{ inputs.machine_type }}" \
+            -var "ssh_user=${SSH_USER}" \
+            -var "ssh_pubkey=${SSH_PUBKEY:-dummy}" \
+            -var "name_suffix=gh${{ github.run_id }}"

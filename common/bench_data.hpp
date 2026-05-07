@@ -1,0 +1,129 @@
+#pragma once
+
+#include <benchmark/benchmark.h>
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <map>
+#include <random>
+#include <utility>
+#include <vector>
+
+namespace bench {
+
+constexpr std::size_t NUM_VALUES = 1'000'000;
+
+// Buffer must hold sign + up to 19 digits + NUL. 32 leaves slack for any
+// contender that wants to align/zero-init.
+constexpr std::size_t BUF_SIZE = 32;
+
+// Distribution selectors passed via state.range(0).
+//   D_UNIFORM : full int64 range, uniform. ~all values land in 18-19 digits.
+//   D_LOG     : uniform over bit-widths [0, 63] then random sign. Equal
+//               weight on each digit length.
+//   D_FIXED   : positive values with exactly state.range(1) decimal digits.
+enum Dist : int { D_UNIFORM = 0, D_LOG = 1, D_FIXED = 2 };
+
+inline std::vector<int64_t> make_uniform() {
+  std::mt19937_64 rng(42);
+  std::uniform_int_distribution<int64_t> dist(INT64_MIN, INT64_MAX);
+  std::vector<int64_t> v(NUM_VALUES);
+  for (auto &x : v) {
+    x = dist(rng);
+  }
+  return v;
+}
+
+inline std::vector<int64_t> make_log_uniform() {
+  std::mt19937_64 rng(43);
+  std::uniform_int_distribution<int> bits_dist(0, 63);
+  std::vector<int64_t> v(NUM_VALUES);
+  for (auto &x : v) {
+    int b = bits_dist(rng);
+    uint64_t mask = (b == 0) ? 0ULL : (~0ULL >> (64 - b));
+    uint64_t mag = static_cast<uint64_t>(rng()) & mask;
+    bool neg = (rng() & 1ULL) != 0;
+    x = neg ? -static_cast<int64_t>(mag) : static_cast<int64_t>(mag);
+  }
+  return v;
+}
+
+inline std::vector<int64_t> make_fixed_length(int len) {
+  std::mt19937_64 rng(static_cast<uint64_t>(44 + len));
+  uint64_t pow10_lo = 1;
+  for (int i = 1; i < len; ++i) {
+    pow10_lo *= 10;
+  }
+  uint64_t lo = (len == 1) ? 0ULL : pow10_lo;
+  uint64_t hi;
+  if (len >= 19) {
+    hi = static_cast<uint64_t>(INT64_MAX);
+  } else {
+    hi = pow10_lo * 10 - 1;
+  }
+  std::uniform_int_distribution<uint64_t> dist(lo, hi);
+  std::vector<int64_t> v(NUM_VALUES);
+  for (auto &x : v) {
+    x = static_cast<int64_t>(dist(rng));
+  }
+  return v;
+}
+
+inline const std::vector<int64_t> &get_values(int dist, int param) {
+  static std::map<std::pair<int, int>, std::vector<int64_t>> cache;
+  auto key = std::make_pair(dist, param);
+  auto it = cache.find(key);
+  if (it != cache.end()) {
+    return it->second;
+  }
+  std::vector<int64_t> v;
+  switch (dist) {
+  case D_UNIFORM:
+    v = make_uniform();
+    break;
+  case D_LOG:
+    v = make_log_uniform();
+    break;
+  case D_FIXED:
+    v = make_fixed_length(param);
+    break;
+  }
+  return cache.emplace(key, std::move(v)).first->second;
+}
+
+inline void set_counters(::benchmark::State &state, std::size_t bytes) {
+  state.counters["ints/s"] = ::benchmark::Counter(
+      static_cast<double>(NUM_VALUES),
+      ::benchmark::Counter::kIsIterationInvariantRate);
+  state.counters["bytes/s"] = ::benchmark::Counter(
+      static_cast<double>(bytes), ::benchmark::Counter::kIsRate,
+      ::benchmark::Counter::OneK::kIs1000);
+  state.counters["ns/int"] = ::benchmark::Counter(
+      static_cast<double>(NUM_VALUES),
+      ::benchmark::Counter::kIsIterationInvariantRate |
+          ::benchmark::Counter::kInvert);
+}
+
+inline auto max_stat = [](const std::vector<double> &v) {
+  return *std::max_element(v.begin(), v.end());
+};
+
+}  // namespace bench
+
+// Register every contender against UNIFORM, LOG, and the full FIXED length
+// sweep (1/4/8/12/16/19). 10 reps, max-throughput aggregate.
+#define BENCH_REGISTER_ALL(fn)                                          \
+  BENCHMARK(fn)                                                         \
+      ->ArgNames({"dist", "param"})                                     \
+      ->Args({::bench::D_UNIFORM, 0})                                   \
+      ->Args({::bench::D_LOG, 0})                                       \
+      ->Args({::bench::D_FIXED, 1})                                     \
+      ->Args({::bench::D_FIXED, 4})                                     \
+      ->Args({::bench::D_FIXED, 8})                                     \
+      ->Args({::bench::D_FIXED, 12})                                    \
+      ->Args({::bench::D_FIXED, 16})                                    \
+      ->Args({::bench::D_FIXED, 19})                                    \
+      ->Repetitions(10)                                                 \
+      ->ComputeStatistics("max", ::bench::max_stat)                     \
+      ->DisplayAggregatesOnly(true)
