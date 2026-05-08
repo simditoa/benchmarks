@@ -6,12 +6,12 @@ provider "google" {
 
 locals {
   suffix        = var.name_suffix != "" ? var.name_suffix : formatdate("YYYYMMDDhhmmss", timestamp())
-  instance_name = "itoa-bench-${local.suffix}"
-  network_tag   = "itoa-bench"
+  instance_name = "${var.prefix}-${local.suffix}"
+  network_tag   = var.prefix
 }
 
-resource "google_compute_firewall" "ssh" {
-  name    = "itoa-bench-allow-ssh-${local.suffix}"
+resource "google_compute_firewall" "this" {
+  name    = "${var.prefix}-allow-ssh-${local.suffix}"
   network = "default"
 
   allow {
@@ -23,7 +23,7 @@ resource "google_compute_firewall" "ssh" {
   target_tags   = [local.network_tag]
 }
 
-resource "google_compute_instance" "bench" {
+resource "google_compute_instance" "this" {
   name             = local.instance_name
   machine_type     = var.machine_type
   zone             = var.zone

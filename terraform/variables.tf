@@ -30,7 +30,7 @@ variable "min_cpu_platform" {
 variable "ssh_user" {
   description = "Linux user for SSH login."
   type        = string
-  default     = "bench"
+  default     = "ubuntu"
 }
 
 variable "ssh_pubkey" {
@@ -42,4 +42,10 @@ variable "name_suffix" {
   description = "Suffix appended to resource names to avoid collisions across runs."
   type        = string
   default     = ""
+}
+
+variable "prefix" {
+  description = "Prefix applied to resource names and the network tag."
+  type        = string
+  default     = "benchmark"
 }

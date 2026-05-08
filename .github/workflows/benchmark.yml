@@ -25,7 +25,9 @@ concurrency:
 
 env:
   TF_DIR: terraform
-  SSH_USER: bench
+  SSH_USER: ubuntu
+  SSH_KEY: ~/.ssh/id_ed25519
+  SSH_OPTS: -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
   OPENAI_MODEL: gpt-5.4-mini
 
 jobs:
@@ -63,10 +65,10 @@ jobs:
       - name: Generate ephemeral SSH keypair
         run: |
           mkdir -p ~/.ssh
-          ssh-keygen -t ed25519 -N "" -f ~/.ssh/bench_key -C "${SSH_USER}@github-actions"
-          chmod 600 ~/.ssh/bench_key
+          ssh-keygen -t ed25519 -N "" -f "${SSH_KEY/#\~/$HOME}" -C "${SSH_USER}@github-actions"
+          chmod 600 "${SSH_KEY/#\~/$HOME}"
           echo "SSH_PUBKEY<<EOF" >> "$GITHUB_ENV"
-          cat ~/.ssh/bench_key.pub >> "$GITHUB_ENV"
+          cat "${SSH_KEY/#\~/$HOME}.pub" >> "$GITHUB_ENV"
           echo "EOF" >> "$GITHUB_ENV"
 
       - name: Terraform init
@@ -96,9 +98,7 @@ jobs:
           VM_IP: ${{ steps.tf_apply.outputs.vm_external_ip }}
         run: |
           for i in $(seq 1 30); do
-            if ssh -i ~/.ssh/bench_key \
-                   -o StrictHostKeyChecking=no \
-                   -o UserKnownHostsFile=/dev/null \
+            if ssh -i "${SSH_KEY}" ${SSH_OPTS} \
                    -o ConnectTimeout=5 \
                    -o BatchMode=yes \
                    "${SSH_USER}@${VM_IP}" "echo ready" >/dev/null 2>&1; then
@@ -115,14 +115,10 @@ jobs:
         env:
           VM_IP: ${{ steps.tf_apply.outputs.vm_external_ip }}
         run: |
-          ssh -i ~/.ssh/bench_key \
-              -o StrictHostKeyChecking=no \
-              -o UserKnownHostsFile=/dev/null \
+          ssh -i "${SSH_KEY}" ${SSH_OPTS} \
               "${SSH_USER}@${VM_IP}" "rm -rf ~/repo && mkdir -p ~/repo"
           tar --exclude='./.git' --exclude='./build' -cz . | \
-            ssh -i ~/.ssh/bench_key \
-                -o StrictHostKeyChecking=no \
-                -o UserKnownHostsFile=/dev/null \
+            ssh -i "${SSH_KEY}" ${SSH_OPTS} \
                 "${SSH_USER}@${VM_IP}" "tar -xz -C ~/repo"
 
       - name: Run benchmark on VM
@@ -130,9 +126,7 @@ jobs:
           VM_IP: ${{ steps.tf_apply.outputs.vm_external_ip }}
           MACHINE_TYPE: ${{ inputs.machine_type }}
         run: |
-          ssh -i ~/.ssh/bench_key \
-              -o StrictHostKeyChecking=no \
-              -o UserKnownHostsFile=/dev/null \
+          ssh -i "${SSH_KEY}" ${SSH_OPTS} \
               "${SSH_USER}@${VM_IP}" \
               "cd ~/repo && BENCH_MACHINE_TYPE='${MACHINE_TYPE}' bash scripts/run-bench.sh" \
               | tee bench-output.txt

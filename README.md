@@ -1,4 +1,4 @@
-# benchmarks
+# Benchmarks
 
 Benchmarks for 64-bit integer-to-string conversion implementations, built on top of [google/benchmark](https://github.com/google/benchmark).
 
