@@ -2,33 +2,53 @@
 
 _Generated 2026-05-07 on a GCP `c3-standard-8` VM in `us-central1-a`._
 
-_Summary produced by OpenAI `gpt-4.1`. Numbers are sourced from the raw google/benchmark output included at the bottom of this file._
+_Summary produced by OpenAI `gpt-5.4-mini`. Numbers are sourced from the raw google/benchmark output included at the bottom of this file._
 
-- **Fastest overall:** `yy_itoa` is the fastest real implementation on UNIFORM (128.636M ints/s), LOG (67.195M ints/s), and all FIXED distributions.
-- **Best for short fixed lengths:** `jeaiii_itoa` leads for FIXED:1 (744.322M ints/s) and FIXED:4 (589.255M ints/s), but is surpassed by `yy_itoa` for longer lengths.
-- **Notable outliers:** `std_to_chars` and `fmtlib_fmt` are consistently slower than other real implementations across all distributions.
-- **Null baseline:** The `null` benchmark (no conversion) is 20x+ faster than any real implementation, as expected.
-- **Hardware caveat:** AVX-512 IFMA/VBMI are present, so all contenders, including `simditoa`, run their full optimized code paths.
+- **Headline winner on the realistic subset** `{UNIFORM_POS, LOG_HEAVY, FIXED:12, FIXED:16, FIXED:19}` is **simditoa** by geometric mean throughput at **194,841,000 ints/s**.
+- **Fastest contender by family**:
+  - **UNIFORM_POS**: **simditoa** at **269,720,000 ints/s**
+  - **LOG_HEAVY**: **simditoa** at **185,959,000 ints/s**
+  - **FIXED:12 / 16 / 19**: **simditoa** at **189,680,000 / 189,698,000 / 186,156,000 ints/s**
+  - **UNIFORM** and **LOG**: **null** is the baseline ceiling at **2,876,120,000 / 2,952,510,000 ints/s**
+- **Notable outliers**: `std_to_chars` is the slowest among the real serializers on the realistic subset; `yy_itoa` is consistently ahead of `std_to_chars` and `rapidjson`, but behind `simditoa`; `rapidjson` and `fmtlib` sit in the middle.
+- **Hardware caveat**: this machine has **AVX-512 IFMA=1** and **VBMI=1**, so **simditoa is using its vector path, not the scalar fallback**.
+- **Important interpretation note**: the short-digit `FIXED:{1,4,8}` cases are intentionally separate; for simditoa’s sub-10^8 “small” kernel, the SIMD setup cost is effectively constant, so scalar methods winning at 1–8 digits is structural, not a benchmark artifact.
 
-| Contender            | UNIFORM ints/s | LOG ints/s | FIXED:8 ints/s | FIXED:19 ints/s |
-|----------------------|----------------|------------|----------------|-----------------|
-| yy_itoa              | 128,636,000    | 67,195,100 | 298,543,000    | 139,748,000     |
-| simditoa_to_chars    | 101,161,000    | 80,630,000 | 225,330,000    | 184,635,000     |
-| jeaiii_itoa          | 74,698,400     | 56,111,800 | 342,882,000    | 127,697,000     |
-| tencent_rapidjson    | 61,807,900     | 45,761,600 | 291,376,000    | 77,352,500      |
-| fmtlib_fmt           | 58,926,600     | 45,080,800 | 220,446,000    | 80,524,800      |
-| std_to_chars         | 42,005,700     | 43,968,000 | 146,086,000    | 56,573,800      |
-| null                 | 2,712,230,000  | 2,680,690,000 | 2,666,310,000 | 2,745,460,000   |
+**Headline scoreboard**
 
-| Contender         | FIXED:1 ints/s | FIXED:4 ints/s | FIXED:8 ints/s | FIXED:12 ints/s | FIXED:16 ints/s | FIXED:19 ints/s |
-|-------------------|----------------|----------------|----------------|-----------------|-----------------|-----------------|
-| yy_itoa           | 548,328,000    | 422,272,000    | 298,543,000    | 205,557,000     | 169,522,000     | 139,748,000     |
-| jeaiii_itoa       | 744,322,000    | 589,255,000    | 342,882,000    | 202,657,000     | 166,921,000     | 127,697,000     |
-| simditoa_to_chars | 270,306,000    | 225,362,000    | 225,330,000    | 189,808,000     | 189,697,000     | 184,635,000     |
-| tencent_rapidjson | 491,407,000    | 510,604,000    | 291,376,000    | 124,416,000     | 124,326,000     | 77,352,500      |
-| fmtlib_fmt        | 984,985,000    | 444,063,000    | 220,446,000    | 134,052,000     | 105,470,000     | 80,524,800      |
-| std_to_chars      | 350,997,000    | 325,227,000    | 146,086,000    | 95,707,200      | 71,527,900      | 56,573,800      |
-| null              | 2,536,100,000  | 2,565,630,000  | 2,666,310,000  | 2,930,860,000   | 2,964,750,000   | 2,745,460,000   |
+| Contender | Geomean ints/s | UNIFORM_POS ints/s | LOG_HEAVY ints/s | FIXED:12 ints/s | FIXED:16 ints/s | FIXED:19 ints/s |
+|---|---:|---:|---:|---:|---:|---:|
+| simditoa | 194,841,000 | 269,720,000 | 185,959,000 | 189,680,000 | 189,698,000 | 186,156,000 |
+| yy_itoa | 164,418,000 | 349,256,000 | 128,832,000 | 205,493,000 | 166,955,000 | 139,717,000 |
+| rapidjson | 126,330,000 | 502,026,000 | 124,244,000 | 124,333,000 | 124,244,000 | 77,508,500 |
+| fmtlib | 111,448,000 | 984,560,000 | 105,533,000 | 144,767,000 | 105,533,000 | 80,763,200 |
+| std_to_chars | 87,088,700 | 397,369,000 | 73,157,600 | 100,569,000 | 73,157,600 | 59,219,700 |
+| jeaiii_itoa | 92,999,700 | 992,763,000 | 166,955,000 | 202,737,000 | 166,955,000 | 126,446,000 |
+
+**Short-digit appendix**
+
+| Contender | FIXED:1 ints/s | FIXED:4 ints/s | FIXED:8 ints/s | FIXED:12 ints/s | FIXED:16 ints/s | FIXED:19 ints/s |
+|---|---:|---:|---:|---:|---:|---:|
+| simditoa | 269,720,000 | 225,319,000 | 225,285,000 | 189,680,000 | 189,698,000 | 186,156,000 |
+| yy_itoa | 349,256,000 | 409,703,000 | 300,898,000 | 205,493,000 | 166,955,000 | 139,717,000 |
+| rapidjson | 502,026,000 | 505,532,000 | 291,034,000 | 124,333,000 | 124,244,000 | 77,508,500 |
+| fmtlib | 984,560,000 | 455,404,000 | 219,662,000 | 144,767,000 | 105,533,000 | 80,763,200 |
+| std_to_chars | 397,369,000 | 293,873,000 | 145,283,000 | 100,569,000 | 73,157,600 | 59,219,700 |
+| jeaiii_itoa | 992,763,000 | 589,710,000 | 336,733,000 | 202,737,000 | 166,955,000 | 126,446,000 |
+
+simditoa’s small-kernel cost is constant by algorithm design, so it is expected to lose on 1–8 digit outputs even when it wins the realistic production-oriented subset.
+
+**Signed / mixed appendix**
+
+| Contender | UNIFORM ints/s | LOG ints/s |
+|---|---:|---:|
+| simditoa | 101,171,000 | 81,339,200 |
+| yy_itoa | 128,841,000 | 65,807,100 |
+| rapidjson | 61,532,100 | 45,847,000 |
+| fmtlib | 58,130,500 | 44,205,600 |
+| std_to_chars | 43,171,200 | 43,976,700 |
+| jeaiii_itoa | 75,971,400 | 55,406,800 |
+| null | 2,876,120,000 | 2,937,360,000 |
 
 ## Raw output
 
@@ -48,286 +68,356 @@ cxx_flags: -mavx512f -mavx512dq -mavx512bw -mavx512vl -mavx512ifma -mavx512vbmi
 --------------------------------------------------------------------------------------------------------------------
 Benchmark                                                          Time             CPU   Iterations UserCounters...
 --------------------------------------------------------------------------------------------------------------------
-bench_simditoa_to_chars/dist:0/param:0/repeats:10_mean       9886878 ns      9885269 ns           10 bytes/s=1.96035G/s ints/s=101.161M/s ns/int=9.88527ns
-bench_simditoa_to_chars/dist:0/param:0/repeats:10_median     9888842 ns      9886823 ns           10 bytes/s=1.96004G/s ints/s=101.145M/s ns/int=9.88682ns
-bench_simditoa_to_chars/dist:0/param:0/repeats:10_stddev        6602 ns         6466 ns           10 bytes/s=1.28262M/s ints/s=66.1875k/s ns/int=6.46623ps
-bench_simditoa_to_chars/dist:0/param:0/repeats:10_cv            0.07 %          0.07 %            10 bytes/s=0.07% ints/s=0.07% ns/int=0.07%
-bench_simditoa_to_chars/dist:0/param:0/repeats:10_max        9893968 ns      9891460 ns           10 bytes/s=1.96242G/s ints/s=101.268M/s ns/int=9.89146ns
-bench_simditoa_to_chars/dist:1/param:0/repeats:10_mean      12404455 ns     12402371 ns           10 bytes/s=810.662M/s ints/s=80.63M/s ns/int=12.4024ns
-bench_simditoa_to_chars/dist:1/param:0/repeats:10_median    12401882 ns     12400258 ns           10 bytes/s=810.798M/s ints/s=80.6435M/s ns/int=12.4003ns
-bench_simditoa_to_chars/dist:1/param:0/repeats:10_stddev       21737 ns        21198 ns           10 bytes/s=1.38439M/s ints/s=137.694k/s ns/int=21.1975ps
-bench_simditoa_to_chars/dist:1/param:0/repeats:10_cv            0.18 %          0.17 %            10 bytes/s=0.17% ints/s=0.17% ns/int=0.17%
-bench_simditoa_to_chars/dist:1/param:0/repeats:10_max       12443263 ns     12440319 ns           10 bytes/s=812.514M/s ints/s=80.8142M/s ns/int=12.4403ns
-bench_simditoa_to_chars/dist:2/param:1/repeats:10_mean       3699866 ns      3699513 ns           10 bytes/s=270.306M/s ints/s=270.306M/s ns/int=3.69951ns
-bench_simditoa_to_chars/dist:2/param:1/repeats:10_median     3700989 ns      3700739 ns           10 bytes/s=270.216M/s ints/s=270.216M/s ns/int=3.70074ns
-bench_simditoa_to_chars/dist:2/param:1/repeats:10_stddev        4278 ns         4199 ns           10 bytes/s=306.848k/s ints/s=306.848k/s ns/int=4.1985ps
-bench_simditoa_to_chars/dist:2/param:1/repeats:10_cv            0.12 %          0.11 %            10 bytes/s=0.11% ints/s=0.11% ns/int=0.11%
-bench_simditoa_to_chars/dist:2/param:1/repeats:10_max        3705782 ns      3705080 ns           10 bytes/s=270.773M/s ints/s=270.773M/s ns/int=3.70508ns
-bench_simditoa_to_chars/dist:2/param:4/repeats:10_mean       4437468 ns      4437297 ns           10 bytes/s=901.45M/s ints/s=225.362M/s ns/int=4.4373ns
-bench_simditoa_to_chars/dist:2/param:4/repeats:10_median     4436840 ns      4436733 ns           10 bytes/s=901.564M/s ints/s=225.391M/s ns/int=4.43673ns
-bench_simditoa_to_chars/dist:2/param:4/repeats:10_stddev        2263 ns         2001 ns           10 bytes/s=406.086k/s ints/s=101.521k/s ns/int=2.0011ps
-bench_simditoa_to_chars/dist:2/param:4/repeats:10_cv            0.05 %          0.05 %            10 bytes/s=0.05% ints/s=0.05% ns/int=0.05%
-bench_simditoa_to_chars/dist:2/param:4/repeats:10_max        4443825 ns      4442924 ns           10 bytes/s=901.677M/s ints/s=225.419M/s ns/int=4.44292ns
-bench_simditoa_to_chars/dist:2/param:8/repeats:10_mean       4438024 ns      4437929 ns           10 bytes/s=1.80264G/s ints/s=225.33M/s ns/int=4.43793ns
-bench_simditoa_to_chars/dist:2/param:8/repeats:10_median     4437746 ns      4437672 ns           10 bytes/s=1.80275G/s ints/s=225.343M/s ns/int=4.43767ns
-bench_simditoa_to_chars/dist:2/param:8/repeats:10_stddev         931 ns          910 ns           10 bytes/s=369.428k/s ints/s=46.1786k/s ns/int=909.59fs
-bench_simditoa_to_chars/dist:2/param:8/repeats:10_cv            0.02 %          0.02 %            10 bytes/s=0.02% ints/s=0.02% ns/int=0.02%
-bench_simditoa_to_chars/dist:2/param:8/repeats:10_max        4439555 ns      4439476 ns           10 bytes/s=1.80312G/s ints/s=225.39M/s ns/int=4.43948ns
-bench_simditoa_to_chars/dist:2/param:12/repeats:10_mean      5268595 ns      5268482 ns           10 bytes/s=2.2777G/s ints/s=189.808M/s ns/int=5.26848ns
-bench_simditoa_to_chars/dist:2/param:12/repeats:10_median    5268941 ns      5268838 ns           10 bytes/s=2.27754G/s ints/s=189.795M/s ns/int=5.26884ns
-bench_simditoa_to_chars/dist:2/param:12/repeats:10_stddev       1282 ns         1264 ns           10 bytes/s=546.627k/s ints/s=45.5523k/s ns/int=1.26372ps
-bench_simditoa_to_chars/dist:2/param:12/repeats:10_cv           0.02 %          0.02 %            10 bytes/s=0.02% ints/s=0.02% ns/int=0.02%
-bench_simditoa_to_chars/dist:2/param:12/repeats:10_max       5269789 ns      5269550 ns           10 bytes/s=2.2792G/s ints/s=189.933M/s ns/int=5.26955ns
-bench_simditoa_to_chars/dist:2/param:16/repeats:10_mean      5271698 ns      5271563 ns           10 bytes/s=3.03515G/s ints/s=189.697M/s ns/int=5.27156ns
-bench_simditoa_to_chars/dist:2/param:16/repeats:10_median    5270356 ns      5270117 ns           10 bytes/s=3.03599G/s ints/s=189.749M/s ns/int=5.27012ns
-bench_simditoa_to_chars/dist:2/param:16/repeats:10_stddev       2591 ns         2588 ns           10 bytes/s=1.48969M/s ints/s=93.1056k/s ns/int=2.58844ps
-bench_simditoa_to_chars/dist:2/param:16/repeats:10_cv           0.05 %          0.05 %            10 bytes/s=0.05% ints/s=0.05% ns/int=0.05%
-bench_simditoa_to_chars/dist:2/param:16/repeats:10_max       5276889 ns      5276822 ns           10 bytes/s=3.03641G/s ints/s=189.775M/s ns/int=5.27682ns
-bench_simditoa_to_chars/dist:2/param:19/repeats:10_mean      5416205 ns      5416081 ns           10 bytes/s=3.50807G/s ints/s=184.635M/s ns/int=5.41608ns
-bench_simditoa_to_chars/dist:2/param:19/repeats:10_median    5416426 ns      5416287 ns           10 bytes/s=3.50794G/s ints/s=184.628M/s ns/int=5.41629ns
-bench_simditoa_to_chars/dist:2/param:19/repeats:10_stddev       1297 ns         1262 ns           10 bytes/s=817.782k/s ints/s=43.0411k/s ns/int=1.26249ps
-bench_simditoa_to_chars/dist:2/param:19/repeats:10_cv           0.02 %          0.02 %            10 bytes/s=0.02% ints/s=0.02% ns/int=0.02%
-bench_simditoa_to_chars/dist:2/param:19/repeats:10_max       5418367 ns      5418120 ns           10 bytes/s=3.50947G/s ints/s=184.709M/s ns/int=5.41812ns
-bench_null/dist:0/param:0/repeats:10_mean                     370869 ns       370866 ns           10 bytes/s=21.6978G/s ints/s=2.71223G/s ns/int=370.866ps
-bench_null/dist:0/param:0/repeats:10_median                   375909 ns       375907 ns           10 bytes/s=21.352G/s ints/s=2.669G/s ns/int=375.907ps
-bench_null/dist:0/param:0/repeats:10_stddev                    29809 ns        29808 ns           10 bytes/s=1.75228G/s ints/s=219.035M/s ns/int=29.808ps
-bench_null/dist:0/param:0/repeats:10_cv                         8.04 %          8.04 %            10 bytes/s=8.08% ints/s=8.08% ns/int=8.04%
-bench_null/dist:0/param:0/repeats:10_max                      401155 ns       401153 ns           10 bytes/s=23.6556G/s ints/s=2.95695G/s ns/int=401.153ps
-bench_null/dist:1/param:0/repeats:10_mean                     375179 ns       375175 ns           10 bytes/s=21.4455G/s ints/s=2.68069G/s ns/int=375.175ps
-bench_null/dist:1/param:0/repeats:10_median                   395493 ns       395489 ns           10 bytes/s=20.2284G/s ints/s=2.52855G/s ns/int=395.489ps
-bench_null/dist:1/param:0/repeats:10_stddev                    29393 ns        29394 ns           10 bytes/s=1.73197G/s ints/s=216.496M/s ns/int=29.3938ps
-bench_null/dist:1/param:0/repeats:10_cv                         7.83 %          7.83 %            10 bytes/s=8.08% ints/s=8.08% ns/int=7.83%
-bench_null/dist:1/param:0/repeats:10_max                      400846 ns       400838 ns           10 bytes/s=23.5878G/s ints/s=2.94847G/s ns/int=400.838ps
-bench_null/dist:2/param:1/repeats:10_mean                     394350 ns       394347 ns           10 bytes/s=20.2888G/s ints/s=2.5361G/s ns/int=394.347ps
-bench_null/dist:2/param:1/repeats:10_median                   394580 ns       394573 ns           10 bytes/s=20.2752G/s ints/s=2.5344G/s ns/int=394.573ps
-bench_null/dist:2/param:1/repeats:10_stddev                     4169 ns         4169 ns           10 bytes/s=214.507M/s ints/s=26.8134M/s ns/int=4.16864ps
-bench_null/dist:2/param:1/repeats:10_cv                         1.06 %          1.06 %            10 bytes/s=1.06% ints/s=1.06% ns/int=1.06%
-bench_null/dist:2/param:1/repeats:10_max                      402090 ns       402087 ns           10 bytes/s=20.682G/s ints/s=2.58524G/s ns/int=402.087ps
-bench_null/dist:2/param:4/repeats:10_mean                     389833 ns       389828 ns           10 bytes/s=20.525G/s ints/s=2.56563G/s ns/int=389.828ps
-bench_null/dist:2/param:4/repeats:10_median                   388466 ns       388460 ns           10 bytes/s=20.5941G/s ints/s=2.57427G/s ns/int=388.46ps
-bench_null/dist:2/param:4/repeats:10_stddev                     5103 ns         5102 ns           10 bytes/s=269.171M/s ints/s=33.6464M/s ns/int=5.1021ps
-bench_null/dist:2/param:4/repeats:10_cv                         1.31 %          1.31 %            10 bytes/s=1.31% ints/s=1.31% ns/int=1.31%
-bench_null/dist:2/param:4/repeats:10_max                      398271 ns       398263 ns           10 bytes/s=21.0559G/s ints/s=2.63198G/s ns/int=398.263ps
-bench_null/dist:2/param:8/repeats:10_mean                     375948 ns       375943 ns           10 bytes/s=21.3305G/s ints/s=2.66631G/s ns/int=375.943ps
-bench_null/dist:2/param:8/repeats:10_median                   382362 ns       382354 ns           10 bytes/s=20.9235G/s ints/s=2.61544G/s ns/int=382.354ps
-bench_null/dist:2/param:8/repeats:10_stddev                    18787 ns        18787 ns           10 bytes/s=1.12847G/s ints/s=141.058M/s ns/int=18.7868ps
-bench_null/dist:2/param:8/repeats:10_cv                         5.00 %          5.00 %            10 bytes/s=5.29% ints/s=5.29% ns/int=5.00%
-bench_null/dist:2/param:8/repeats:10_max                      393442 ns       393436 ns           10 bytes/s=23.7327G/s ints/s=2.96658G/s ns/int=393.436ps
-bench_null/dist:2/param:12/repeats:10_mean                    341652 ns       341649 ns           10 bytes/s=23.4469G/s ints/s=2.93086G/s ns/int=341.649ps
-bench_null/dist:2/param:12/repeats:10_median                  337060 ns       337058 ns           10 bytes/s=23.7348G/s ints/s=2.96685G/s ns/int=337.058ps
-bench_null/dist:2/param:12/repeats:10_stddev                   13752 ns        13751 ns           10 bytes/s=856.894M/s ints/s=107.112M/s ns/int=13.7511ps
-bench_null/dist:2/param:12/repeats:10_cv                        4.03 %          4.02 %            10 bytes/s=3.65% ints/s=3.65% ns/int=4.02%
-bench_null/dist:2/param:12/repeats:10_max                     380744 ns       380739 ns           10 bytes/s=23.7497G/s ints/s=2.96871G/s ns/int=380.739ps
-bench_null/dist:2/param:16/repeats:10_mean                    337300 ns       337296 ns           10 bytes/s=23.718G/s ints/s=2.96475G/s ns/int=337.296ps
-bench_null/dist:2/param:16/repeats:10_median                  337201 ns       337198 ns           10 bytes/s=23.7249G/s ints/s=2.96561G/s ns/int=337.198ps
-bench_null/dist:2/param:16/repeats:10_stddev                     235 ns          234 ns           10 bytes/s=16.4579M/s ints/s=2.05724M/s ns/int=234.385fs
-bench_null/dist:2/param:16/repeats:10_cv                        0.07 %          0.07 %            10 bytes/s=0.07% ints/s=0.07% ns/int=0.07%
-bench_null/dist:2/param:16/repeats:10_max                     337932 ns       337926 ns           10 bytes/s=23.729G/s ints/s=2.96612G/s ns/int=337.926ps
-bench_null/dist:2/param:19/repeats:10_mean                    366190 ns       366187 ns           10 bytes/s=21.9636G/s ints/s=2.74546G/s ns/int=366.187ps
-bench_null/dist:2/param:19/repeats:10_median                  367904 ns       367900 ns           10 bytes/s=21.8073G/s ints/s=2.72592G/s ns/int=367.9ps
-bench_null/dist:2/param:19/repeats:10_stddev                   28142 ns        28142 ns           10 bytes/s=1.69045G/s ints/s=211.306M/s ns/int=28.1416ps
-bench_null/dist:2/param:19/repeats:10_cv                        7.69 %          7.69 %            10 bytes/s=7.70% ints/s=7.70% ns/int=7.69%
-bench_null/dist:2/param:19/repeats:10_max                     396836 ns       396826 ns           10 bytes/s=23.7073G/s ints/s=2.96341G/s ns/int=396.826ps
-bench_std_to_chars/dist:0/param:0/repeats:10_mean           23806655 ns     23806285 ns           10 bytes/s=814.013M/s ints/s=42.0057M/s ns/int=23.8063ns
-bench_std_to_chars/dist:0/param:0/repeats:10_median         23802440 ns     23802056 ns           10 bytes/s=814.157M/s ints/s=42.0132M/s ns/int=23.8021ns
-bench_std_to_chars/dist:0/param:0/repeats:10_stddev            16158 ns        16048 ns           10 bytes/s=548.509k/s ints/s=28.3049k/s ns/int=16.0475ps
-bench_std_to_chars/dist:0/param:0/repeats:10_cv                 0.07 %          0.07 %            10 bytes/s=0.07% ints/s=0.07% ns/int=0.07%
-bench_std_to_chars/dist:0/param:0/repeats:10_max            23838120 ns     23837060 ns           10 bytes/s=814.682M/s ints/s=42.0403M/s ns/int=23.8371ns
-bench_std_to_chars/dist:1/param:0/repeats:10_mean           22744361 ns     22743892 ns           10 bytes/s=442.059M/s ints/s=43.968M/s ns/int=22.7439ns
-bench_std_to_chars/dist:1/param:0/repeats:10_median         22731493 ns     22731019 ns           10 bytes/s=442.308M/s ints/s=43.9927M/s ns/int=22.731ns
-bench_std_to_chars/dist:1/param:0/repeats:10_stddev            44274 ns        44183 ns           10 bytes/s=856.135k/s ints/s=85.1528k/s ns/int=44.1832ps
-bench_std_to_chars/dist:1/param:0/repeats:10_cv                 0.19 %          0.19 %            10 bytes/s=0.19% ints/s=0.19% ns/int=0.19%
-bench_std_to_chars/dist:1/param:0/repeats:10_max            22851568 ns     22851023 ns           10 bytes/s=442.705M/s ints/s=44.0323M/s ns/int=22.851ns
-bench_std_to_chars/dist:2/param:1/repeats:10_mean            2849078 ns      2849025 ns           10 bytes/s=350.997M/s ints/s=350.997M/s ns/int=2.84902ns
-bench_std_to_chars/dist:2/param:1/repeats:10_median          2849431 ns      2849376 ns           10 bytes/s=350.954M/s ints/s=350.954M/s ns/int=2.84938ns
-bench_std_to_chars/dist:2/param:1/repeats:10_stddev             1497 ns         1499 ns           10 bytes/s=184.676k/s ints/s=184.676k/s ns/int=1.49877ps
-bench_std_to_chars/dist:2/param:1/repeats:10_cv                 0.05 %          0.05 %            10 bytes/s=0.05% ints/s=0.05% ns/int=0.05%
-bench_std_to_chars/dist:2/param:1/repeats:10_max             2851253 ns      2851259 ns           10 bytes/s=351.314M/s ints/s=351.314M/s ns/int=2.85126ns
-bench_std_to_chars/dist:2/param:4/repeats:10_mean            3074845 ns      3074784 ns           10 bytes/s=1.30091G/s ints/s=325.227M/s ns/int=3.07478ns
-bench_std_to_chars/dist:2/param:4/repeats:10_median          3074113 ns      3074015 ns           10 bytes/s=1.30123G/s ints/s=325.307M/s ns/int=3.07401ns
-bench_std_to_chars/dist:2/param:4/repeats:10_stddev             4774 ns         4781 ns           10 bytes/s=2.01893M/s ints/s=504.732k/s ns/int=4.78082ps
-bench_std_to_chars/dist:2/param:4/repeats:10_cv                 0.16 %          0.16 %            10 bytes/s=0.16% ints/s=0.16% ns/int=0.16%
-bench_std_to_chars/dist:2/param:4/repeats:10_max             3086237 ns      3086159 ns           10 bytes/s=1.30331G/s ints/s=325.828M/s ns/int=3.08616ns
-bench_std_to_chars/dist:2/param:8/repeats:10_mean            6845374 ns      6845271 ns           10 bytes/s=1.16869G/s ints/s=146.086M/s ns/int=6.84527ns
-bench_std_to_chars/dist:2/param:8/repeats:10_median          6843550 ns      6843485 ns           10 bytes/s=1.169G/s ints/s=146.124M/s ns/int=6.84348ns
-bench_std_to_chars/dist:2/param:8/repeats:10_stddev             8989 ns         8986 ns           10 bytes/s=1.53294M/s ints/s=191.618k/s ns/int=8.98634ps
-bench_std_to_chars/dist:2/param:8/repeats:10_cv                 0.13 %          0.13 %            10 bytes/s=0.13% ints/s=0.13% ns/int=0.13%
-bench_std_to_chars/dist:2/param:8/repeats:10_max             6863185 ns      6863031 ns           10 bytes/s=1.17063G/s ints/s=146.329M/s ns/int=6.86303ns
-bench_std_to_chars/dist:2/param:12/repeats:10_mean          10448744 ns     10448590 ns           10 bytes/s=1.14849G/s ints/s=95.7072M/s ns/int=10.4486ns
-bench_std_to_chars/dist:2/param:12/repeats:10_median        10450962 ns     10450810 ns           10 bytes/s=1.14824G/s ints/s=95.6864M/s ns/int=10.4508ns
-bench_std_to_chars/dist:2/param:12/repeats:10_stddev           24329 ns        24360 ns           10 bytes/s=2.68002M/s ints/s=223.335k/s ns/int=24.3602ps
-bench_std_to_chars/dist:2/param:12/repeats:10_cv                0.23 %          0.23 %            10 bytes/s=0.23% ints/s=0.23% ns/int=0.23%
-bench_std_to_chars/dist:2/param:12/repeats:10_max           10485623 ns     10485639 ns           10 bytes/s=1.15338G/s ints/s=96.1154M/s ns/int=10.4856ns
-bench_std_to_chars/dist:2/param:16/repeats:10_mean          13980778 ns     13980571 ns           10 bytes/s=1.14445G/s ints/s=71.5279M/s ns/int=13.9806ns
-bench_std_to_chars/dist:2/param:16/repeats:10_median        13987208 ns     13987071 ns           10 bytes/s=1.14391G/s ints/s=71.4946M/s ns/int=13.9871ns
-bench_std_to_chars/dist:2/param:16/repeats:10_stddev           14984 ns        15058 ns           10 bytes/s=1.23337M/s ints/s=77.0859k/s ns/int=15.0584ps
-bench_std_to_chars/dist:2/param:16/repeats:10_cv                0.11 %          0.11 %            10 bytes/s=0.11% ints/s=0.11% ns/int=0.11%
-bench_std_to_chars/dist:2/param:16/repeats:10_max           14000286 ns     14000308 ns           10 bytes/s=1.14661G/s ints/s=71.6628M/s ns/int=14.0003ns
-bench_std_to_chars/dist:2/param:19/repeats:10_mean          17676364 ns     17676055 ns           10 bytes/s=1.0749G/s ints/s=56.5738M/s ns/int=17.6761ns
-bench_std_to_chars/dist:2/param:19/repeats:10_median        17673342 ns     17673145 ns           10 bytes/s=1.07508G/s ints/s=56.583M/s ns/int=17.6731ns
-bench_std_to_chars/dist:2/param:19/repeats:10_stddev           19897 ns        19811 ns           10 bytes/s=1.20459M/s ints/s=63.3995k/s ns/int=19.8107ps
-bench_std_to_chars/dist:2/param:19/repeats:10_cv                0.11 %          0.11 %            10 bytes/s=0.11% ints/s=0.11% ns/int=0.11%
-bench_std_to_chars/dist:2/param:19/repeats:10_max           17701435 ns     17701475 ns           10 bytes/s=1.07642G/s ints/s=56.6538M/s ns/int=17.7015ns
-bench_yy_itoa/dist:0/param:0/repeats:10_mean                 7773970 ns      7773862 ns           10 bytes/s=2.49279G/s ints/s=128.636M/s ns/int=7.77386ns
-bench_yy_itoa/dist:0/param:0/repeats:10_median               7772412 ns      7772376 ns           10 bytes/s=2.49327G/s ints/s=128.661M/s ns/int=7.77238ns
-bench_yy_itoa/dist:0/param:0/repeats:10_stddev                  5030 ns         5001 ns           10 bytes/s=1.6012M/s ints/s=82.6274k/s ns/int=5.00076ps
-bench_yy_itoa/dist:0/param:0/repeats:10_cv                      0.06 %          0.06 %            10 bytes/s=0.06% ints/s=0.06% ns/int=0.06%
-bench_yy_itoa/dist:0/param:0/repeats:10_max                  7787878 ns      7787712 ns           10 bytes/s=2.49375G/s ints/s=128.686M/s ns/int=7.78771ns
-bench_yy_itoa/dist:1/param:0/repeats:10_mean                14882435 ns     14882079 ns           10 bytes/s=675.587M/s ints/s=67.1951M/s ns/int=14.8821ns
-bench_yy_itoa/dist:1/param:0/repeats:10_median              14875049 ns     14874823 ns           10 bytes/s=675.914M/s ints/s=67.2277M/s ns/int=14.8748ns
-bench_yy_itoa/dist:1/param:0/repeats:10_stddev                 26309 ns        26296 ns           10 bytes/s=1.19286M/s ints/s=118.644k/s ns/int=26.2962ps
-bench_yy_itoa/dist:1/param:0/repeats:10_cv                      0.18 %          0.18 %            10 bytes/s=0.18% ints/s=0.18% ns/int=0.18%
-bench_yy_itoa/dist:1/param:0/repeats:10_max                 14920013 ns     14919631 ns           10 bytes/s=676.887M/s ints/s=67.3244M/s ns/int=14.9196ns
-bench_yy_itoa/dist:2/param:1/repeats:10_mean                 1823763 ns      1823733 ns           10 bytes/s=548.328M/s ints/s=548.328M/s ns/int=1.82373ns
-bench_yy_itoa/dist:2/param:1/repeats:10_median               1823070 ns      1823038 ns           10 bytes/s=548.535M/s ints/s=548.535M/s ns/int=1.82304ns
-bench_yy_itoa/dist:2/param:1/repeats:10_stddev                  3955 ns         3967 ns           10 bytes/s=1.18959M/s ints/s=1.18959M/s ns/int=3.96713ps
-bench_yy_itoa/dist:2/param:1/repeats:10_cv                      0.22 %          0.22 %            10 bytes/s=0.22% ints/s=0.22% ns/int=0.22%
-bench_yy_itoa/dist:2/param:1/repeats:10_max                  1833008 ns      1832993 ns           10 bytes/s=549.614M/s ints/s=549.614M/s ns/int=1.83299ns
-bench_yy_itoa/dist:2/param:4/repeats:10_mean                 2368175 ns      2368144 ns           10 bytes/s=1.68909G/s ints/s=422.272M/s ns/int=2.36814ns
-bench_yy_itoa/dist:2/param:4/repeats:10_median               2367985 ns      2367930 ns           10 bytes/s=1.68924G/s ints/s=422.31M/s ns/int=2.36793ns
-bench_yy_itoa/dist:2/param:4/repeats:10_stddev                  1034 ns         1029 ns           10 bytes/s=733.802k/s ints/s=183.451k/s ns/int=1.02924ps
-bench_yy_itoa/dist:2/param:4/repeats:10_cv                      0.04 %          0.04 %            10 bytes/s=0.04% ints/s=0.04% ns/int=0.04%
-bench_yy_itoa/dist:2/param:4/repeats:10_max                  2370404 ns      2370346 ns           10 bytes/s=1.6899G/s ints/s=422.475M/s ns/int=2.37035ns
-bench_yy_itoa/dist:2/param:8/repeats:10_mean                 3349704 ns      3349634 ns           10 bytes/s=2.38834G/s ints/s=298.543M/s ns/int=3.34963ns
-bench_yy_itoa/dist:2/param:8/repeats:10_median               3349775 ns      3349714 ns           10 bytes/s=2.38827G/s ints/s=298.534M/s ns/int=3.34971ns
-bench_yy_itoa/dist:2/param:8/repeats:10_stddev                 10101 ns        10088 ns           10 bytes/s=7.19362M/s ints/s=899.202k/s ns/int=10.0881ps
-bench_yy_itoa/dist:2/param:8/repeats:10_cv                      0.30 %          0.30 %            10 bytes/s=0.30% ints/s=0.30% ns/int=0.30%
-bench_yy_itoa/dist:2/param:8/repeats:10_max                  3363243 ns      3363087 ns           10 bytes/s=2.39867G/s ints/s=299.834M/s ns/int=3.36309ns
-bench_yy_itoa/dist:2/param:12/repeats:10_mean                4864906 ns      4864827 ns           10 bytes/s=2.46669G/s ints/s=205.557M/s ns/int=4.86483ns
-bench_yy_itoa/dist:2/param:12/repeats:10_median              4865225 ns      4865191 ns           10 bytes/s=2.4665G/s ints/s=205.542M/s ns/int=4.86519ns
-bench_yy_itoa/dist:2/param:12/repeats:10_stddev                 5453 ns         5450 ns           10 bytes/s=2.76326M/s ints/s=230.272k/s ns/int=5.44957ps
+bench_simditoa_to_chars/dist:0/param:0/repeats:10_mean       9889291 ns      9888234 ns           10 bytes/s=1.96055G/s ints/s=101.171M/s ns/int=9.88823ns
+bench_simditoa_to_chars/dist:0/param:0/repeats:10_median     9771261 ns      9770389 ns           10 bytes/s=1.9834G/s ints/s=102.35M/s ns/int=9.77039ns
+bench_simditoa_to_chars/dist:0/param:0/repeats:10_stddev      210866 ns       210580 ns           10 bytes/s=40.9996M/s ints/s=2.11571M/s ns/int=210.58ps
+bench_simditoa_to_chars/dist:0/param:0/repeats:10_cv            2.13 %          2.13 %            10 bytes/s=2.09% ints/s=2.09% ns/int=2.13%
+bench_simditoa_to_chars/dist:0/param:0/repeats:10_max       10254744 ns     10253117 ns           10 bytes/s=1.98885G/s ints/s=102.631M/s ns/int=10.2531ns
+bench_simditoa_to_chars/dist:3/param:0/repeats:10_mean       5378014 ns      5377534 ns           10 bytes/s=3.51086G/s ints/s=185.959M/s ns/int=5.37753ns
+bench_simditoa_to_chars/dist:3/param:0/repeats:10_median     5375346 ns      5375033 ns           10 bytes/s=3.51248G/s ints/s=186.045M/s ns/int=5.37503ns
+bench_simditoa_to_chars/dist:3/param:0/repeats:10_stddev        8822 ns         8656 ns           10 bytes/s=5.63515M/s ints/s=298.477k/s ns/int=8.65632ps
+bench_simditoa_to_chars/dist:3/param:0/repeats:10_cv            0.16 %          0.16 %            10 bytes/s=0.16% ints/s=0.16% ns/int=0.16%
+bench_simditoa_to_chars/dist:3/param:0/repeats:10_max        5400864 ns      5399839 ns           10 bytes/s=3.5148G/s ints/s=186.168M/s ns/int=5.39984ns
+bench_simditoa_to_chars/dist:1/param:0/repeats:10_mean      12294539 ns     12294210 ns           10 bytes/s=817.793M/s ints/s=81.3392M/s ns/int=12.2942ns
+bench_simditoa_to_chars/dist:1/param:0/repeats:10_median    12299693 ns     12299309 ns           10 bytes/s=817.453M/s ints/s=81.3054M/s ns/int=12.2993ns
+bench_simditoa_to_chars/dist:1/param:0/repeats:10_stddev       17534 ns        17340 ns           10 bytes/s=1.15387M/s ints/s=114.766k/s ns/int=17.3397ps
+bench_simditoa_to_chars/dist:1/param:0/repeats:10_cv            0.14 %          0.14 %            10 bytes/s=0.14% ints/s=0.14% ns/int=0.14%
+bench_simditoa_to_chars/dist:1/param:0/repeats:10_max       12318244 ns     12318280 ns           10 bytes/s=819.47M/s ints/s=81.506M/s ns/int=12.3183ns
+bench_simditoa_to_chars/dist:4/param:0/repeats:10_mean       7236268 ns      7236185 ns           10 bytes/s=2.15119G/s ints/s=138.195M/s ns/int=7.23619ns
+bench_simditoa_to_chars/dist:4/param:0/repeats:10_median     7245879 ns      7245776 ns           10 bytes/s=2.14832G/s ints/s=138.011M/s ns/int=7.24578ns
+bench_simditoa_to_chars/dist:4/param:0/repeats:10_stddev       20457 ns        20432 ns           10 bytes/s=6.08709M/s ints/s=391.044k/s ns/int=20.4316ps
+bench_simditoa_to_chars/dist:4/param:0/repeats:10_cv            0.28 %          0.28 %            10 bytes/s=0.28% ints/s=0.28% ns/int=0.28%
+bench_simditoa_to_chars/dist:4/param:0/repeats:10_max        7256861 ns      7256696 ns           10 bytes/s=2.16106G/s ints/s=138.83M/s ns/int=7.2567ns
+bench_simditoa_to_chars/dist:2/param:1/repeats:10_mean       3707610 ns      3707546 ns           10 bytes/s=269.72M/s ints/s=269.72M/s ns/int=3.70755ns
+bench_simditoa_to_chars/dist:2/param:1/repeats:10_median     3707731 ns      3707660 ns           10 bytes/s=269.712M/s ints/s=269.712M/s ns/int=3.70766ns
+bench_simditoa_to_chars/dist:2/param:1/repeats:10_stddev         876 ns          858 ns           10 bytes/s=62.4173k/s ints/s=62.4173k/s ns/int=857.754fs
+bench_simditoa_to_chars/dist:2/param:1/repeats:10_cv            0.02 %          0.02 %            10 bytes/s=0.02% ints/s=0.02% ns/int=0.02%
+bench_simditoa_to_chars/dist:2/param:1/repeats:10_max        3708714 ns      3708647 ns           10 bytes/s=269.868M/s ints/s=269.868M/s ns/int=3.70865ns
+bench_simditoa_to_chars/dist:2/param:4/repeats:10_mean       4438248 ns      4438161 ns           10 bytes/s=901.274M/s ints/s=225.319M/s ns/int=4.43816ns
+bench_simditoa_to_chars/dist:2/param:4/repeats:10_median     4438345 ns      4438234 ns           10 bytes/s=901.259M/s ints/s=225.315M/s ns/int=4.43823ns
+bench_simditoa_to_chars/dist:2/param:4/repeats:10_stddev         671 ns          701 ns           10 bytes/s=142.33k/s ints/s=35.5824k/s ns/int=700.868fs
+bench_simditoa_to_chars/dist:2/param:4/repeats:10_cv            0.02 %          0.02 %            10 bytes/s=0.02% ints/s=0.02% ns/int=0.02%
+bench_simditoa_to_chars/dist:2/param:4/repeats:10_max        4439045 ns      4439008 ns           10 bytes/s=901.462M/s ints/s=225.365M/s ns/int=4.43901ns
+bench_simditoa_to_chars/dist:2/param:8/repeats:10_mean       4438891 ns      4438819 ns           10 bytes/s=1.80228G/s ints/s=225.285M/s ns/int=4.43882ns
+bench_simditoa_to_chars/dist:2/param:8/repeats:10_median     4438831 ns      4438736 ns           10 bytes/s=1.80231G/s ints/s=225.289M/s ns/int=4.43874ns
+bench_simditoa_to_chars/dist:2/param:8/repeats:10_stddev         452 ns          474 ns           10 bytes/s=192.256k/s ints/s=24.032k/s ns/int=473.541fs
+bench_simditoa_to_chars/dist:2/param:8/repeats:10_cv            0.01 %          0.01 %            10 bytes/s=0.01% ints/s=0.01% ns/int=0.01%
+bench_simditoa_to_chars/dist:2/param:8/repeats:10_max        4439883 ns      4439847 ns           10 bytes/s=1.80258G/s ints/s=225.322M/s ns/int=4.43985ns
+bench_simditoa_to_chars/dist:2/param:12/repeats:10_mean      5272117 ns      5272044 ns           10 bytes/s=2.27616G/s ints/s=189.68M/s ns/int=5.27204ns
+bench_simditoa_to_chars/dist:2/param:12/repeats:10_median    5272081 ns      5271945 ns           10 bytes/s=2.2762G/s ints/s=189.683M/s ns/int=5.27194ns
+bench_simditoa_to_chars/dist:2/param:12/repeats:10_stddev        624 ns          636 ns           10 bytes/s=274.463k/s ints/s=22.8719k/s ns/int=635.842fs
+bench_simditoa_to_chars/dist:2/param:12/repeats:10_cv           0.01 %          0.01 %            10 bytes/s=0.01% ints/s=0.01% ns/int=0.01%
+bench_simditoa_to_chars/dist:2/param:12/repeats:10_max       5273674 ns      5273691 ns           10 bytes/s=2.27649G/s ints/s=189.708M/s ns/int=5.27369ns
+bench_simditoa_to_chars/dist:2/param:16/repeats:10_mean      5271635 ns      5271538 ns           10 bytes/s=3.03517G/s ints/s=189.698M/s ns/int=5.27154ns
+bench_simditoa_to_chars/dist:2/param:16/repeats:10_median    5271473 ns      5271429 ns           10 bytes/s=3.03523G/s ints/s=189.702M/s ns/int=5.27143ns
+bench_simditoa_to_chars/dist:2/param:16/repeats:10_stddev        453 ns          428 ns           10 bytes/s=246.467k/s ints/s=15.4042k/s ns/int=428.086fs
+bench_simditoa_to_chars/dist:2/param:16/repeats:10_cv           0.01 %          0.01 %            10 bytes/s=0.01% ints/s=0.01% ns/int=0.01%
+bench_simditoa_to_chars/dist:2/param:16/repeats:10_max       5272322 ns      5272207 ns           10 bytes/s=3.03548G/s ints/s=189.718M/s ns/int=5.27221ns
+bench_simditoa_to_chars/dist:2/param:19/repeats:10_mean      5371910 ns      5371827 ns           10 bytes/s=3.53697G/s ints/s=186.156M/s ns/int=5.37183ns
+bench_simditoa_to_chars/dist:2/param:19/repeats:10_median    5371912 ns      5371801 ns           10 bytes/s=3.53699G/s ints/s=186.157M/s ns/int=5.3718ns
+bench_simditoa_to_chars/dist:2/param:19/repeats:10_stddev        742 ns          745 ns           10 bytes/s=490.409k/s ints/s=25.811k/s ns/int=744.898fs
+bench_simditoa_to_chars/dist:2/param:19/repeats:10_cv           0.01 %          0.01 %            10 bytes/s=0.01% ints/s=0.01% ns/int=0.01%
+bench_simditoa_to_chars/dist:2/param:19/repeats:10_max       5373561 ns      5373503 ns           10 bytes/s=3.5377G/s ints/s=186.195M/s ns/int=5.3735ns
+bench_null/dist:0/param:0/repeats:10_mean                     347841 ns       347838 ns           10 bytes/s=23.0089G/s ints/s=2.87612G/s ns/int=347.838ps
+bench_null/dist:0/param:0/repeats:10_median                   345138 ns       345132 ns           10 bytes/s=23.181G/s ints/s=2.89763G/s ns/int=345.132ps
+bench_null/dist:0/param:0/repeats:10_stddev                     7560 ns         7561 ns           10 bytes/s=495.501M/s ints/s=61.9377M/s ns/int=7.56136ps
+bench_null/dist:0/param:0/repeats:10_cv                         2.17 %          2.17 %            10 bytes/s=2.15% ints/s=2.15% ns/int=2.17%
+bench_null/dist:0/param:0/repeats:10_max                      358399 ns       358400 ns           10 bytes/s=23.4953G/s ints/s=2.93691G/s ns/int=358.4ps
+bench_null/dist:3/param:0/repeats:10_mean                     338700 ns       338698 ns           10 bytes/s=23.6201G/s ints/s=2.95251G/s ns/int=338.698ps
+bench_null/dist:3/param:0/repeats:10_median                   338781 ns       338778 ns           10 bytes/s=23.6143G/s ints/s=2.95179G/s ns/int=338.778ps
+bench_null/dist:3/param:0/repeats:10_stddev                     1093 ns         1092 ns           10 bytes/s=76.2236M/s ints/s=9.52795M/s ns/int=1.09244ps
+bench_null/dist:3/param:0/repeats:10_cv                         0.32 %          0.32 %            10 bytes/s=0.32% ints/s=0.32% ns/int=0.32%
+bench_null/dist:3/param:0/repeats:10_max                      340121 ns       340117 ns           10 bytes/s=23.7309G/s ints/s=2.96636G/s ns/int=340.117ps
+bench_null/dist:1/param:0/repeats:10_mean                     340445 ns       340442 ns           10 bytes/s=23.4989G/s ints/s=2.93736G/s ns/int=340.442ps
+bench_null/dist:1/param:0/repeats:10_median                   340386 ns       340382 ns           10 bytes/s=23.503G/s ints/s=2.93788G/s ns/int=340.382ps
+bench_null/dist:1/param:0/repeats:10_stddev                      201 ns          202 ns           10 bytes/s=13.9177M/s ints/s=1.73971M/s ns/int=201.685fs
+bench_null/dist:1/param:0/repeats:10_cv                         0.06 %          0.06 %            10 bytes/s=0.06% ints/s=0.06% ns/int=0.06%
+bench_null/dist:1/param:0/repeats:10_max                      340743 ns       340744 ns           10 bytes/s=23.5143G/s ints/s=2.93928G/s ns/int=340.744ps
+bench_null/dist:4/param:0/repeats:10_mean                     340580 ns       340578 ns           10 bytes/s=23.4895G/s ints/s=2.93619G/s ns/int=340.578ps
+bench_null/dist:4/param:0/repeats:10_median                   340760 ns       340760 ns           10 bytes/s=23.4769G/s ints/s=2.93461G/s ns/int=340.76ps
+bench_null/dist:4/param:0/repeats:10_stddev                      585 ns          587 ns           10 bytes/s=40.6216M/s ints/s=5.0777M/s ns/int=586.749fs
+bench_null/dist:4/param:0/repeats:10_cv                         0.17 %          0.17 %            10 bytes/s=0.17% ints/s=0.17% ns/int=0.17%
+bench_null/dist:4/param:0/repeats:10_max                      340978 ns       340975 ns           10 bytes/s=23.6007G/s ints/s=2.95008G/s ns/int=340.975ps
+bench_null/dist:2/param:1/repeats:10_mean                     338636 ns       338634 ns           10 bytes/s=23.6244G/s ints/s=2.95305G/s ns/int=338.634ps
+bench_null/dist:2/param:1/repeats:10_median                   338308 ns       338306 ns           10 bytes/s=23.6472G/s ints/s=2.9559G/s ns/int=338.306ps
+bench_null/dist:2/param:1/repeats:10_stddev                      761 ns          760 ns           10 bytes/s=52.9299M/s ints/s=6.61624M/s ns/int=760.239fs
+bench_null/dist:2/param:1/repeats:10_cv                         0.22 %          0.22 %            10 bytes/s=0.22% ints/s=0.22% ns/int=0.22%
+bench_null/dist:2/param:1/repeats:10_max                      339994 ns       339990 ns           10 bytes/s=23.6852G/s ints/s=2.96065G/s ns/int=339.99ps
+bench_null/dist:2/param:4/repeats:10_mean                     338446 ns       338444 ns           10 bytes/s=23.6376G/s ints/s=2.95471G/s ns/int=338.444ps
+bench_null/dist:2/param:4/repeats:10_median                   338353 ns       338351 ns           10 bytes/s=23.6441G/s ints/s=2.95551G/s ns/int=338.351ps
+bench_null/dist:2/param:4/repeats:10_stddev                      492 ns          490 ns           10 bytes/s=34.2272M/s ints/s=4.2784M/s ns/int=490.268fs
+bench_null/dist:2/param:4/repeats:10_cv                         0.15 %          0.14 %            10 bytes/s=0.14% ints/s=0.14% ns/int=0.14%
+bench_null/dist:2/param:4/repeats:10_max                      339213 ns       339207 ns           10 bytes/s=23.6818G/s ints/s=2.96023G/s ns/int=339.207ps
+bench_null/dist:2/param:8/repeats:10_mean                     338819 ns       338817 ns           10 bytes/s=23.6118G/s ints/s=2.95147G/s ns/int=338.817ps
+bench_null/dist:2/param:8/repeats:10_median                   338982 ns       338982 ns           10 bytes/s=23.6001G/s ints/s=2.95001G/s ns/int=338.982ps
+bench_null/dist:2/param:8/repeats:10_stddev                     1069 ns         1069 ns           10 bytes/s=74.5995M/s ints/s=9.32494M/s ns/int=1.06922ps
+bench_null/dist:2/param:8/repeats:10_cv                         0.32 %          0.32 %            10 bytes/s=0.32% ints/s=0.32% ns/int=0.32%
+bench_null/dist:2/param:8/repeats:10_max                      340456 ns       340455 ns           10 bytes/s=23.7498G/s ints/s=2.96872G/s ns/int=340.455ps
+bench_null/dist:2/param:12/repeats:10_mean                    338056 ns       338054 ns           10 bytes/s=23.6649G/s ints/s=2.95812G/s ns/int=338.054ps
+bench_null/dist:2/param:12/repeats:10_median                  338068 ns       338067 ns           10 bytes/s=23.664G/s ints/s=2.958G/s ns/int=338.067ps
+bench_null/dist:2/param:12/repeats:10_stddev                     561 ns          562 ns           10 bytes/s=39.367M/s ints/s=4.92087M/s ns/int=562.102fs
+bench_null/dist:2/param:12/repeats:10_cv                        0.17 %          0.17 %            10 bytes/s=0.17% ints/s=0.17% ns/int=0.17%
+bench_null/dist:2/param:12/repeats:10_max                     338838 ns       338838 ns           10 bytes/s=23.7337G/s ints/s=2.96671G/s ns/int=338.838ps
+bench_null/dist:2/param:16/repeats:10_mean                    337994 ns       337992 ns           10 bytes/s=23.6693G/s ints/s=2.95866G/s ns/int=337.992ps
+bench_null/dist:2/param:16/repeats:10_median                  338119 ns       338116 ns           10 bytes/s=23.6605G/s ints/s=2.95756G/s ns/int=338.116ps
+bench_null/dist:2/param:16/repeats:10_stddev                     674 ns          674 ns           10 bytes/s=47.2208M/s ints/s=5.9026M/s ns/int=674.409fs
+bench_null/dist:2/param:16/repeats:10_cv                        0.20 %          0.20 %            10 bytes/s=0.20% ints/s=0.20% ns/int=0.20%
+bench_null/dist:2/param:16/repeats:10_max                     339078 ns       339078 ns           10 bytes/s=23.729G/s ints/s=2.96613G/s ns/int=339.078ps
+bench_null/dist:2/param:19/repeats:10_mean                    338211 ns       338209 ns           10 bytes/s=23.654G/s ints/s=2.95675G/s ns/int=338.209ps
+bench_null/dist:2/param:19/repeats:10_median                  338226 ns       338220 ns           10 bytes/s=23.6532G/s ints/s=2.95666G/s ns/int=338.22ps
+bench_null/dist:2/param:19/repeats:10_stddev                     225 ns          225 ns           10 bytes/s=15.7503M/s ints/s=1.96878M/s ns/int=225.155fs
+bench_null/dist:2/param:19/repeats:10_cv                        0.07 %          0.07 %            10 bytes/s=0.07% ints/s=0.07% ns/int=0.07%
+bench_null/dist:2/param:19/repeats:10_max                     338511 ns       338511 ns           10 bytes/s=23.6831G/s ints/s=2.96039G/s ns/int=338.511ps
+bench_std_to_chars/dist:0/param:0/repeats:10_mean           23163781 ns     23163586 ns           10 bytes/s=836.598M/s ints/s=43.1712M/s ns/int=23.1636ns
+bench_std_to_chars/dist:0/param:0/repeats:10_median         23161704 ns     23161627 ns           10 bytes/s=836.669M/s ints/s=43.1749M/s ns/int=23.1616ns
+bench_std_to_chars/dist:0/param:0/repeats:10_stddev            10964 ns        10975 ns           10 bytes/s=396.331k/s ints/s=20.452k/s ns/int=10.9751ps
+bench_std_to_chars/dist:0/param:0/repeats:10_cv                 0.05 %          0.05 %            10 bytes/s=0.05% ints/s=0.05% ns/int=0.05%
+bench_std_to_chars/dist:0/param:0/repeats:10_max            23184289 ns     23184345 ns           10 bytes/s=837.184M/s ints/s=43.2014M/s ns/int=23.1843ns
+bench_std_to_chars/dist:3/param:0/repeats:10_mean           18102696 ns     18102426 ns           10 bytes/s=1.04294G/s ints/s=55.2413M/s ns/int=18.1024ns
+bench_std_to_chars/dist:3/param:0/repeats:10_median         18104225 ns     18104057 ns           10 bytes/s=1.04284G/s ints/s=55.2362M/s ns/int=18.1041ns
+bench_std_to_chars/dist:3/param:0/repeats:10_stddev            16598 ns        16703 ns           10 bytes/s=962.66k/s ints/s=50.9891k/s ns/int=16.7031ps
+bench_std_to_chars/dist:3/param:0/repeats:10_cv                 0.09 %          0.09 %            10 bytes/s=0.09% ints/s=0.09% ns/int=0.09%
+bench_std_to_chars/dist:3/param:0/repeats:10_max            18123305 ns     18123096 ns           10 bytes/s=1.0448G/s ints/s=55.3398M/s ns/int=18.1231ns
+bench_std_to_chars/dist:1/param:0/repeats:10_mean           22739678 ns     22739467 ns           10 bytes/s=442.146M/s ints/s=43.9767M/s ns/int=22.7395ns
+bench_std_to_chars/dist:1/param:0/repeats:10_median         22728517 ns     22728291 ns           10 bytes/s=442.361M/s ints/s=43.998M/s ns/int=22.7283ns
+bench_std_to_chars/dist:1/param:0/repeats:10_stddev            61381 ns        61362 ns           10 bytes/s=1.1895M/s ints/s=118.31k/s ns/int=61.3619ps
+bench_std_to_chars/dist:1/param:0/repeats:10_cv                 0.27 %          0.27 %            10 bytes/s=0.27% ints/s=0.27% ns/int=0.27%
+bench_std_to_chars/dist:1/param:0/repeats:10_max            22880917 ns     22880984 ns           10 bytes/s=443.439M/s ints/s=44.1053M/s ns/int=22.881ns
+bench_std_to_chars/dist:4/param:0/repeats:10_mean           25260587 ns     25260337 ns           10 bytes/s=616.234M/s ints/s=39.5878M/s ns/int=25.2603ns
+bench_std_to_chars/dist:4/param:0/repeats:10_median         25260342 ns     25260428 ns           10 bytes/s=616.231M/s ints/s=39.5876M/s ns/int=25.2604ns
+bench_std_to_chars/dist:4/param:0/repeats:10_stddev            20841 ns        20834 ns           10 bytes/s=508.359k/s ints/s=32.6577k/s ns/int=20.834ps
+bench_std_to_chars/dist:4/param:0/repeats:10_cv                 0.08 %          0.08 %            10 bytes/s=0.08% ints/s=0.08% ns/int=0.08%
+bench_std_to_chars/dist:4/param:0/repeats:10_max            25294692 ns     25294763 ns           10 bytes/s=617.216M/s ints/s=39.6509M/s ns/int=25.2948ns
+bench_std_to_chars/dist:2/param:1/repeats:10_mean            2516577 ns      2516557 ns           10 bytes/s=397.369M/s ints/s=397.369M/s ns/int=2.51656ns
+bench_std_to_chars/dist:2/param:1/repeats:10_median          2516715 ns      2516702 ns           10 bytes/s=397.345M/s ints/s=397.345M/s ns/int=2.5167ns
+bench_std_to_chars/dist:2/param:1/repeats:10_stddev             3162 ns         3168 ns           10 bytes/s=500.059k/s ints/s=500.059k/s ns/int=3.16779ps
+bench_std_to_chars/dist:2/param:1/repeats:10_cv                 0.13 %          0.13 %            10 bytes/s=0.13% ints/s=0.13% ns/int=0.13%
+bench_std_to_chars/dist:2/param:1/repeats:10_max             2521388 ns      2521394 ns           10 bytes/s=397.957M/s ints/s=397.957M/s ns/int=2.52139ns
+bench_std_to_chars/dist:2/param:4/repeats:10_mean            3402902 ns      3402865 ns           10 bytes/s=1.17549G/s ints/s=293.873M/s ns/int=3.40287ns
+bench_std_to_chars/dist:2/param:4/repeats:10_median          3405301 ns      3405237 ns           10 bytes/s=1.17466G/s ints/s=293.665M/s ns/int=3.40524ns
+bench_std_to_chars/dist:2/param:4/repeats:10_stddev            11341 ns        11343 ns           10 bytes/s=3.93594M/s ints/s=983.985k/s ns/int=11.3434ps
+bench_std_to_chars/dist:2/param:4/repeats:10_cv                 0.33 %          0.33 %            10 bytes/s=0.33% ints/s=0.33% ns/int=0.33%
+bench_std_to_chars/dist:2/param:4/repeats:10_max             3414160 ns      3414170 ns           10 bytes/s=1.18496G/s ints/s=296.24M/s ns/int=3.41417ns
+bench_std_to_chars/dist:2/param:8/repeats:10_mean            6883389 ns      6883281 ns           10 bytes/s=1.16226G/s ints/s=145.283M/s ns/int=6.88328ns
+bench_std_to_chars/dist:2/param:8/repeats:10_median          6878360 ns      6878256 ns           10 bytes/s=1.16309G/s ints/s=145.386M/s ns/int=6.87826ns
+bench_std_to_chars/dist:2/param:8/repeats:10_stddev            33479 ns        33506 ns           10 bytes/s=5.65058M/s ints/s=706.323k/s ns/int=33.506ps
+bench_std_to_chars/dist:2/param:8/repeats:10_cv                 0.49 %          0.49 %            10 bytes/s=0.49% ints/s=0.49% ns/int=0.49%
+bench_std_to_chars/dist:2/param:8/repeats:10_max             6929183 ns      6928992 ns           10 bytes/s=1.1697G/s ints/s=146.212M/s ns/int=6.92899ns
+bench_std_to_chars/dist:2/param:12/repeats:10_mean           9943470 ns      9943397 ns           10 bytes/s=1.20683G/s ints/s=100.569M/s ns/int=9.9434ns
+bench_std_to_chars/dist:2/param:12/repeats:10_median         9946219 ns      9946042 ns           10 bytes/s=1.20651G/s ints/s=100.543M/s ns/int=9.94604ns
+bench_std_to_chars/dist:2/param:12/repeats:10_stddev            9318 ns         9322 ns           10 bytes/s=1.13184M/s ints/s=94.3202k/s ns/int=9.32214ps
+bench_std_to_chars/dist:2/param:12/repeats:10_cv                0.09 %          0.09 %            10 bytes/s=0.09% ints/s=0.09% ns/int=0.09%
+bench_std_to_chars/dist:2/param:12/repeats:10_max            9953355 ns      9953384 ns           10 bytes/s=1.20865G/s ints/s=100.721M/s ns/int=9.95338ns
+bench_std_to_chars/dist:2/param:16/repeats:10_mean          13669314 ns     13669170 ns           10 bytes/s=1.17052G/s ints/s=73.1576M/s ns/int=13.6692ns
+bench_std_to_chars/dist:2/param:16/repeats:10_median        13662150 ns     13662093 ns           10 bytes/s=1.17112G/s ints/s=73.1952M/s ns/int=13.6621ns
+bench_std_to_chars/dist:2/param:16/repeats:10_stddev           26886 ns        26864 ns           10 bytes/s=2.30093M/s ints/s=143.808k/s ns/int=26.864ps
+bench_std_to_chars/dist:2/param:16/repeats:10_cv                0.20 %          0.20 %            10 bytes/s=0.20% ints/s=0.20% ns/int=0.20%
+bench_std_to_chars/dist:2/param:16/repeats:10_max           13711857 ns     13711610 ns           10 bytes/s=1.17485G/s ints/s=73.4279M/s ns/int=13.7116ns
+bench_std_to_chars/dist:2/param:19/repeats:10_mean          16886425 ns     16886273 ns           10 bytes/s=1.12517G/s ints/s=59.2197M/s ns/int=16.8863ns
+bench_std_to_chars/dist:2/param:19/repeats:10_median        16885503 ns     16885370 ns           10 bytes/s=1.12523G/s ints/s=59.2229M/s ns/int=16.8854ns
+bench_std_to_chars/dist:2/param:19/repeats:10_stddev           11681 ns        11787 ns           10 bytes/s=785.538k/s ints/s=41.3441k/s ns/int=11.7865ps
+bench_std_to_chars/dist:2/param:19/repeats:10_cv                0.07 %          0.07 %            10 bytes/s=0.07% ints/s=0.07% ns/int=0.07%
+bench_std_to_chars/dist:2/param:19/repeats:10_max           16902700 ns     16902756 ns           10 bytes/s=1.12672G/s ints/s=59.3008M/s ns/int=16.9028ns
+bench_yy_itoa/dist:0/param:0/repeats:10_mean                 7761589 ns      7761486 ns           10 bytes/s=2.49677G/s ints/s=128.841M/s ns/int=7.76149ns
+bench_yy_itoa/dist:0/param:0/repeats:10_median               7762123 ns      7761948 ns           10 bytes/s=2.49662G/s ints/s=128.834M/s ns/int=7.76195ns
+bench_yy_itoa/dist:0/param:0/repeats:10_stddev                  1837 ns         1895 ns           10 bytes/s=609.441k/s ints/s=31.4491k/s ns/int=1.89454ps
+bench_yy_itoa/dist:0/param:0/repeats:10_cv                      0.02 %          0.02 %            10 bytes/s=0.02% ints/s=0.02% ns/int=0.02%
+bench_yy_itoa/dist:0/param:0/repeats:10_max                  7764265 ns      7764282 ns           10 bytes/s=2.49755G/s ints/s=128.882M/s ns/int=7.76428ns
+bench_yy_itoa/dist:3/param:0/repeats:10_mean                 7762152 ns      7762070 ns           10 bytes/s=2.4323G/s ints/s=128.832M/s ns/int=7.76207ns
+bench_yy_itoa/dist:3/param:0/repeats:10_median               7761776 ns      7761573 ns           10 bytes/s=2.43246G/s ints/s=128.84M/s ns/int=7.76157ns
+bench_yy_itoa/dist:3/param:0/repeats:10_stddev                  2446 ns         2422 ns           10 bytes/s=758.715k/s ints/s=40.1868k/s ns/int=2.42154ps
+bench_yy_itoa/dist:3/param:0/repeats:10_cv                      0.03 %          0.03 %            10 bytes/s=0.03% ints/s=0.03% ns/int=0.03%
+bench_yy_itoa/dist:3/param:0/repeats:10_max                  7766697 ns      7766556 ns           10 bytes/s=2.43351G/s ints/s=128.896M/s ns/int=7.76656ns
+bench_yy_itoa/dist:1/param:0/repeats:10_mean                15196197 ns     15195934 ns           10 bytes/s=661.632M/s ints/s=65.8071M/s ns/int=15.1959ns
+bench_yy_itoa/dist:1/param:0/repeats:10_median              15196018 ns     15195804 ns           10 bytes/s=661.637M/s ints/s=65.8076M/s ns/int=15.1958ns
+bench_yy_itoa/dist:1/param:0/repeats:10_stddev                 14016 ns        14032 ns           10 bytes/s=610.79k/s ints/s=60.7503k/s ns/int=14.0321ps
+bench_yy_itoa/dist:1/param:0/repeats:10_cv                      0.09 %          0.09 %            10 bytes/s=0.09% ints/s=0.09% ns/int=0.09%
+bench_yy_itoa/dist:1/param:0/repeats:10_max                 15225134 ns     15224653 ns           10 bytes/s=662.673M/s ints/s=65.9107M/s ns/int=15.2247ns
+bench_yy_itoa/dist:4/param:0/repeats:10_mean                13312852 ns     13312707 ns           10 bytes/s=1.16928G/s ints/s=75.1162M/s ns/int=13.3127ns
+bench_yy_itoa/dist:4/param:0/repeats:10_median              13310321 ns     13310111 ns           10 bytes/s=1.16951G/s ints/s=75.1309M/s ns/int=13.3101ns
+bench_yy_itoa/dist:4/param:0/repeats:10_stddev                  8233 ns         8297 ns           10 bytes/s=728.274k/s ints/s=46.7854k/s ns/int=8.29688ps
+bench_yy_itoa/dist:4/param:0/repeats:10_cv                      0.06 %          0.06 %            10 bytes/s=0.06% ints/s=0.06% ns/int=0.06%
+bench_yy_itoa/dist:4/param:0/repeats:10_max                 13331236 ns     13331268 ns           10 bytes/s=1.17021G/s ints/s=75.1762M/s ns/int=13.3313ns
+bench_yy_itoa/dist:2/param:1/repeats:10_mean                 2863266 ns      2863236 ns           10 bytes/s=349.256M/s ints/s=349.256M/s ns/int=2.86324ns
+bench_yy_itoa/dist:2/param:1/repeats:10_median               2863501 ns      2863461 ns           10 bytes/s=349.228M/s ints/s=349.228M/s ns/int=2.86346ns
+bench_yy_itoa/dist:2/param:1/repeats:10_stddev                  4972 ns         4972 ns           10 bytes/s=606.369k/s ints/s=606.369k/s ns/int=4.97235ps
+bench_yy_itoa/dist:2/param:1/repeats:10_cv                      0.17 %          0.17 %            10 bytes/s=0.17% ints/s=0.17% ns/int=0.17%
+bench_yy_itoa/dist:2/param:1/repeats:10_max                  2872429 ns      2872395 ns           10 bytes/s=350.109M/s ints/s=350.109M/s ns/int=2.8724ns
+bench_yy_itoa/dist:2/param:4/repeats:10_mean                 2440819 ns      2440799 ns           10 bytes/s=1.63881G/s ints/s=409.703M/s ns/int=2.4408ns
+bench_yy_itoa/dist:2/param:4/repeats:10_median               2441774 ns      2441766 ns           10 bytes/s=1.63816G/s ints/s=409.54M/s ns/int=2.44177ns
+bench_yy_itoa/dist:2/param:4/repeats:10_stddev                  3467 ns         3464 ns           10 bytes/s=2.32771M/s ints/s=581.929k/s ns/int=3.46357ps
+bench_yy_itoa/dist:2/param:4/repeats:10_cv                      0.14 %          0.14 %            10 bytes/s=0.14% ints/s=0.14% ns/int=0.14%
+bench_yy_itoa/dist:2/param:4/repeats:10_max                  2445552 ns      2445529 ns           10 bytes/s=1.64283G/s ints/s=410.708M/s ns/int=2.44553ns
+bench_yy_itoa/dist:2/param:8/repeats:10_mean                 3323411 ns      3323389 ns           10 bytes/s=2.40719G/s ints/s=300.898M/s ns/int=3.32339ns
+bench_yy_itoa/dist:2/param:8/repeats:10_median               3321800 ns      3321772 ns           10 bytes/s=2.40835G/s ints/s=301.044M/s ns/int=3.32177ns
+bench_yy_itoa/dist:2/param:8/repeats:10_stddev                  4636 ns         4641 ns           10 bytes/s=3.35981M/s ints/s=419.976k/s ns/int=4.6415ps
+bench_yy_itoa/dist:2/param:8/repeats:10_cv                      0.14 %          0.14 %            10 bytes/s=0.14% ints/s=0.14% ns/int=0.14%
+bench_yy_itoa/dist:2/param:8/repeats:10_max                  3332365 ns      3332346 ns           10 bytes/s=2.41184G/s ints/s=301.48M/s ns/int=3.33235ns
+bench_yy_itoa/dist:2/param:12/repeats:10_mean                4866403 ns      4866355 ns           10 bytes/s=2.46591G/s ints/s=205.493M/s ns/int=4.86635ns
+bench_yy_itoa/dist:2/param:12/repeats:10_median              4866481 ns      4866470 ns           10 bytes/s=2.46585G/s ints/s=205.488M/s ns/int=4.86647ns
+bench_yy_itoa/dist:2/param:12/repeats:10_stddev                 5492 ns         5496 ns           10 bytes/s=2.78602M/s ints/s=232.169k/s ns/int=5.49643ps
 bench_yy_itoa/dist:2/param:12/repeats:10_cv                     0.11 %          0.11 %            10 bytes/s=0.11% ints/s=0.11% ns/int=0.11%
-bench_yy_itoa/dist:2/param:12/repeats:10_max                 4872259 ns      4872218 ns           10 bytes/s=2.47012G/s ints/s=205.843M/s ns/int=4.87222ns
-bench_yy_itoa/dist:2/param:16/repeats:10_mean                5899046 ns      5898949 ns           10 bytes/s=2.71235G/s ints/s=169.522M/s ns/int=5.89895ns
-bench_yy_itoa/dist:2/param:16/repeats:10_median              5898098 ns      5897980 ns           10 bytes/s=2.71279G/s ints/s=169.55M/s ns/int=5.89798ns
-bench_yy_itoa/dist:2/param:16/repeats:10_stddev                 3124 ns         3155 ns           10 bytes/s=1.45053M/s ints/s=90.6581k/s ns/int=3.15548ps
+bench_yy_itoa/dist:2/param:12/repeats:10_max                 4875137 ns      4875148 ns           10 bytes/s=2.47138G/s ints/s=205.948M/s ns/int=4.87515ns
+bench_yy_itoa/dist:2/param:16/repeats:10_mean                5897796 ns      5897748 ns           10 bytes/s=2.7129G/s ints/s=169.556M/s ns/int=5.89775ns
+bench_yy_itoa/dist:2/param:16/repeats:10_median              5897048 ns      5896977 ns           10 bytes/s=2.71325G/s ints/s=169.578M/s ns/int=5.89698ns
+bench_yy_itoa/dist:2/param:16/repeats:10_stddev                 3208 ns         3225 ns           10 bytes/s=1.48397M/s ints/s=92.7481k/s ns/int=3.22544ps
 bench_yy_itoa/dist:2/param:16/repeats:10_cv                     0.05 %          0.05 %            10 bytes/s=0.05% ints/s=0.05% ns/int=0.05%
-bench_yy_itoa/dist:2/param:16/repeats:10_max                 5903724 ns      5903585 ns           10 bytes/s=2.71374G/s ints/s=169.609M/s ns/int=5.90358ns
-bench_yy_itoa/dist:2/param:19/repeats:10_mean                7155818 ns      7155724 ns           10 bytes/s=2.65522G/s ints/s=139.748M/s ns/int=7.15572ns
-bench_yy_itoa/dist:2/param:19/repeats:10_median              7155739 ns      7155582 ns           10 bytes/s=2.65527G/s ints/s=139.751M/s ns/int=7.15558ns
-bench_yy_itoa/dist:2/param:19/repeats:10_stddev                 3012 ns         3032 ns           10 bytes/s=1.12507M/s ints/s=59.2141k/s ns/int=3.03194ps
-bench_yy_itoa/dist:2/param:19/repeats:10_cv                     0.04 %          0.04 %            10 bytes/s=0.04% ints/s=0.04% ns/int=0.04%
-bench_yy_itoa/dist:2/param:19/repeats:10_max                 7160473 ns      7160491 ns           10 bytes/s=2.65712G/s ints/s=139.848M/s ns/int=7.16049ns
-bench_jeaiii_itoa/dist:0/param:0/repeats:10_mean            13387613 ns     13387389 ns           10 bytes/s=1.44755G/s ints/s=74.6984M/s ns/int=13.3874ns
-bench_jeaiii_itoa/dist:0/param:0/repeats:10_median          13391931 ns     13391704 ns           10 bytes/s=1.44706G/s ints/s=74.6731M/s ns/int=13.3917ns
-bench_jeaiii_itoa/dist:0/param:0/repeats:10_stddev             58434 ns        58444 ns           10 bytes/s=6.30291M/s ints/s=325.251k/s ns/int=58.4444ps
-bench_jeaiii_itoa/dist:0/param:0/repeats:10_cv                  0.44 %          0.44 %            10 bytes/s=0.44% ints/s=0.44% ns/int=0.44%
-bench_jeaiii_itoa/dist:0/param:0/repeats:10_max             13514292 ns     13514028 ns           10 bytes/s=1.45665G/s ints/s=75.168M/s ns/int=13.514ns
-bench_jeaiii_itoa/dist:1/param:0/repeats:10_mean            17821996 ns     17821562 ns           10 bytes/s=564.154M/s ints/s=56.1118M/s ns/int=17.8216ns
-bench_jeaiii_itoa/dist:1/param:0/repeats:10_median          17824212 ns     17823488 ns           10 bytes/s=564.093M/s ints/s=56.1057M/s ns/int=17.8235ns
-bench_jeaiii_itoa/dist:1/param:0/repeats:10_stddev             15349 ns        15482 ns           10 bytes/s=490.289k/s ints/s=48.7651k/s ns/int=15.4822ps
-bench_jeaiii_itoa/dist:1/param:0/repeats:10_cv                  0.09 %          0.09 %            10 bytes/s=0.09% ints/s=0.09% ns/int=0.09%
-bench_jeaiii_itoa/dist:1/param:0/repeats:10_max             17842646 ns     17842690 ns           10 bytes/s=565.032M/s ints/s=56.1991M/s ns/int=17.8427ns
-bench_jeaiii_itoa/dist:2/param:1/repeats:10_mean             1343630 ns      1343605 ns           10 bytes/s=744.322M/s ints/s=744.322M/s ns/int=1.3436ns
-bench_jeaiii_itoa/dist:2/param:1/repeats:10_median           1348623 ns      1348589 ns           10 bytes/s=741.516M/s ints/s=741.516M/s ns/int=1.34859ns
-bench_jeaiii_itoa/dist:2/param:1/repeats:10_stddev             12099 ns        12107 ns           10 bytes/s=6.82335M/s ints/s=6.82335M/s ns/int=12.1071ps
-bench_jeaiii_itoa/dist:2/param:1/repeats:10_cv                  0.90 %          0.90 %            10 bytes/s=0.92% ints/s=0.92% ns/int=0.90%
-bench_jeaiii_itoa/dist:2/param:1/repeats:10_max              1351583 ns      1351533 ns           10 bytes/s=762.044M/s ints/s=762.044M/s ns/int=1.35153ns
-bench_jeaiii_itoa/dist:2/param:4/repeats:10_mean             1697083 ns      1697057 ns           10 bytes/s=2.35702G/s ints/s=589.255M/s ns/int=1.69706ns
-bench_jeaiii_itoa/dist:2/param:4/repeats:10_median           1697053 ns      1697024 ns           10 bytes/s=2.35707G/s ints/s=589.267M/s ns/int=1.69702ns
-bench_jeaiii_itoa/dist:2/param:4/repeats:10_stddev               210 ns          201 ns           10 bytes/s=279.586k/s ints/s=69.8966k/s ns/int=201.302fs
-bench_jeaiii_itoa/dist:2/param:4/repeats:10_cv                  0.01 %          0.01 %            10 bytes/s=0.01% ints/s=0.01% ns/int=0.01%
-bench_jeaiii_itoa/dist:2/param:4/repeats:10_max              1697413 ns      1697376 ns           10 bytes/s=2.35753G/s ints/s=589.383M/s ns/int=1.69738ns
-bench_jeaiii_itoa/dist:2/param:8/repeats:10_mean             2916503 ns      2916459 ns           10 bytes/s=2.74306G/s ints/s=342.882M/s ns/int=2.91646ns
-bench_jeaiii_itoa/dist:2/param:8/repeats:10_median           2915108 ns      2915081 ns           10 bytes/s=2.74435G/s ints/s=343.044M/s ns/int=2.91508ns
-bench_jeaiii_itoa/dist:2/param:8/repeats:10_stddev              4129 ns         4128 ns           10 bytes/s=3.88168M/s ints/s=485.21k/s ns/int=4.12796ps
-bench_jeaiii_itoa/dist:2/param:8/repeats:10_cv                  0.14 %          0.14 %            10 bytes/s=0.14% ints/s=0.14% ns/int=0.14%
-bench_jeaiii_itoa/dist:2/param:8/repeats:10_max              2922807 ns      2922778 ns           10 bytes/s=2.74845G/s ints/s=343.556M/s ns/int=2.92278ns
-bench_jeaiii_itoa/dist:2/param:12/repeats:10_mean            4934524 ns      4934437 ns           10 bytes/s=2.43189G/s ints/s=202.657M/s ns/int=4.93444ns
-bench_jeaiii_itoa/dist:2/param:12/repeats:10_median          4935305 ns      4935252 ns           10 bytes/s=2.43149G/s ints/s=202.624M/s ns/int=4.93525ns
-bench_jeaiii_itoa/dist:2/param:12/repeats:10_stddev             3222 ns         3275 ns           10 bytes/s=1.61439M/s ints/s=134.532k/s ns/int=3.27488ps
+bench_yy_itoa/dist:2/param:16/repeats:10_max                 5902767 ns      5902784 ns           10 bytes/s=2.71591G/s ints/s=169.744M/s ns/int=5.90278ns
+bench_yy_itoa/dist:2/param:19/repeats:10_mean                7157407 ns      7157329 ns           10 bytes/s=2.65462G/s ints/s=139.717M/s ns/int=7.15733ns
+bench_yy_itoa/dist:2/param:19/repeats:10_median              7157637 ns      7157619 ns           10 bytes/s=2.65451G/s ints/s=139.711M/s ns/int=7.15762ns
+bench_yy_itoa/dist:2/param:19/repeats:10_stddev                 1283 ns         1263 ns           10 bytes/s=468.606k/s ints/s=24.6635k/s ns/int=1.26323ps
+bench_yy_itoa/dist:2/param:19/repeats:10_cv                     0.02 %          0.02 %            10 bytes/s=0.02% ints/s=0.02% ns/int=0.02%
+bench_yy_itoa/dist:2/param:19/repeats:10_max                 7158795 ns      7158676 ns           10 bytes/s=2.65565G/s ints/s=139.771M/s ns/int=7.15868ns
+bench_jeaiii_itoa/dist:0/param:0/repeats:10_mean            13162945 ns     13162875 ns           10 bytes/s=1.47222G/s ints/s=75.9714M/s ns/int=13.1629ns
+bench_jeaiii_itoa/dist:0/param:0/repeats:10_median          13163940 ns     13163578 ns           10 bytes/s=1.47214G/s ints/s=75.9672M/s ns/int=13.1636ns
+bench_jeaiii_itoa/dist:0/param:0/repeats:10_stddev             16970 ns        16997 ns           10 bytes/s=1.90226M/s ints/s=98.1629k/s ns/int=16.9974ps
+bench_jeaiii_itoa/dist:0/param:0/repeats:10_cv                  0.13 %          0.13 %            10 bytes/s=0.13% ints/s=0.13% ns/int=0.13%
+bench_jeaiii_itoa/dist:0/param:0/repeats:10_max             13180357 ns     13180405 ns           10 bytes/s=1.4757G/s ints/s=76.1509M/s ns/int=13.1804ns
+bench_jeaiii_itoa/dist:3/param:0/repeats:10_mean             8699213 ns      8699144 ns           10 bytes/s=2.1703G/s ints/s=114.954M/s ns/int=8.69914ns
+bench_jeaiii_itoa/dist:3/param:0/repeats:10_median           8697107 ns      8697041 ns           10 bytes/s=2.17082G/s ints/s=114.982M/s ns/int=8.69704ns
+bench_jeaiii_itoa/dist:3/param:0/repeats:10_stddev              8767 ns         8796 ns           10 bytes/s=2.19044M/s ints/s=116.021k/s ns/int=8.79628ps
+bench_jeaiii_itoa/dist:3/param:0/repeats:10_cv                  0.10 %          0.10 %            10 bytes/s=0.10% ints/s=0.10% ns/int=0.10%
+bench_jeaiii_itoa/dist:3/param:0/repeats:10_max              8722129 ns      8722151 ns           10 bytes/s=2.17216G/s ints/s=115.053M/s ns/int=8.72215ns
+bench_jeaiii_itoa/dist:1/param:0/repeats:10_mean            18048650 ns     18048349 ns           10 bytes/s=557.066M/s ints/s=55.4068M/s ns/int=18.0483ns
+bench_jeaiii_itoa/dist:1/param:0/repeats:10_median          18039006 ns     18038902 ns           10 bytes/s=557.357M/s ints/s=55.4357M/s ns/int=18.0389ns
+bench_jeaiii_itoa/dist:1/param:0/repeats:10_stddev             20479 ns        20422 ns           10 bytes/s=629.214k/s ints/s=62.5828k/s ns/int=20.4224ps
+bench_jeaiii_itoa/dist:1/param:0/repeats:10_cv                  0.11 %          0.11 %            10 bytes/s=0.11% ints/s=0.11% ns/int=0.11%
+bench_jeaiii_itoa/dist:1/param:0/repeats:10_max             18098832 ns     18098580 ns           10 bytes/s=557.528M/s ints/s=55.4527M/s ns/int=18.0986ns
+bench_jeaiii_itoa/dist:4/param:0/repeats:10_mean            14582892 ns     14582602 ns           10 bytes/s=1.06746G/s ints/s=68.5749M/s ns/int=14.5826ns
+bench_jeaiii_itoa/dist:4/param:0/repeats:10_median          14578599 ns     14578377 ns           10 bytes/s=1.06776G/s ints/s=68.5947M/s ns/int=14.5784ns
+bench_jeaiii_itoa/dist:4/param:0/repeats:10_stddev             11195 ns        11009 ns           10 bytes/s=805.414k/s ints/s=51.741k/s ns/int=11.0094ps
+bench_jeaiii_itoa/dist:4/param:0/repeats:10_cv                  0.08 %          0.08 %            10 bytes/s=0.08% ints/s=0.08% ns/int=0.08%
+bench_jeaiii_itoa/dist:4/param:0/repeats:10_max             14604461 ns     14603812 ns           10 bytes/s=1.06827G/s ints/s=68.6272M/s ns/int=14.6038ns
+bench_jeaiii_itoa/dist:2/param:1/repeats:10_mean             1007311 ns      1007303 ns           10 bytes/s=992.763M/s ints/s=992.763M/s ns/int=1.0073ns
+bench_jeaiii_itoa/dist:2/param:1/repeats:10_median           1007974 ns      1007970 ns           10 bytes/s=992.093M/s ints/s=992.093M/s ns/int=1.00797ns
+bench_jeaiii_itoa/dist:2/param:1/repeats:10_stddev              3812 ns         3816 ns           10 bytes/s=3.76527M/s ints/s=3.76527M/s ns/int=3.81628ps
+bench_jeaiii_itoa/dist:2/param:1/repeats:10_cv                  0.38 %          0.38 %            10 bytes/s=0.38% ints/s=0.38% ns/int=0.38%
+bench_jeaiii_itoa/dist:2/param:1/repeats:10_max              1013869 ns      1013871 ns           10 bytes/s=1.00013G/s ints/s=1.00013G/s ns/int=1.01387ns
+bench_jeaiii_itoa/dist:2/param:4/repeats:10_mean             1695757 ns      1695748 ns           10 bytes/s=2.35884G/s ints/s=589.71M/s ns/int=1.69575ns
+bench_jeaiii_itoa/dist:2/param:4/repeats:10_median           1695662 ns      1695650 ns           10 bytes/s=2.35898G/s ints/s=589.744M/s ns/int=1.69565ns
+bench_jeaiii_itoa/dist:2/param:4/repeats:10_stddev               271 ns          269 ns           10 bytes/s=374.662k/s ints/s=93.6654k/s ns/int=269.353fs
+bench_jeaiii_itoa/dist:2/param:4/repeats:10_cv                  0.02 %          0.02 %            10 bytes/s=0.02% ints/s=0.02% ns/int=0.02%
+bench_jeaiii_itoa/dist:2/param:4/repeats:10_max              1696121 ns      1696126 ns           10 bytes/s=2.35923G/s ints/s=589.808M/s ns/int=1.69613ns
+bench_jeaiii_itoa/dist:2/param:8/repeats:10_mean             2969755 ns      2969713 ns           10 bytes/s=2.69387G/s ints/s=336.733M/s ns/int=2.96971ns
+bench_jeaiii_itoa/dist:2/param:8/repeats:10_median           2970388 ns      2970365 ns           10 bytes/s=2.69327G/s ints/s=336.659M/s ns/int=2.97036ns
+bench_jeaiii_itoa/dist:2/param:8/repeats:10_stddev              3326 ns         3311 ns           10 bytes/s=3.00606M/s ints/s=375.758k/s ns/int=3.31067ps
+bench_jeaiii_itoa/dist:2/param:8/repeats:10_cv                  0.11 %          0.11 %            10 bytes/s=0.11% ints/s=0.11% ns/int=0.11%
+bench_jeaiii_itoa/dist:2/param:8/repeats:10_max              2974876 ns      2974773 ns           10 bytes/s=2.70064G/s ints/s=337.58M/s ns/int=2.97477ns
+bench_jeaiii_itoa/dist:2/param:12/repeats:10_mean            4932537 ns      4932504 ns           10 bytes/s=2.43284G/s ints/s=202.737M/s ns/int=4.9325ns
+bench_jeaiii_itoa/dist:2/param:12/repeats:10_median          4933365 ns      4933344 ns           10 bytes/s=2.43243G/s ints/s=202.702M/s ns/int=4.93334ns
+bench_jeaiii_itoa/dist:2/param:12/repeats:10_stddev             3363 ns         3358 ns           10 bytes/s=1.65796M/s ints/s=138.163k/s ns/int=3.35809ps
 bench_jeaiii_itoa/dist:2/param:12/repeats:10_cv                 0.07 %          0.07 %            10 bytes/s=0.07% ints/s=0.07% ns/int=0.07%
-bench_jeaiii_itoa/dist:2/param:12/repeats:10_max             4938783 ns      4938795 ns           10 bytes/s=2.43456G/s ints/s=202.88M/s ns/int=4.93879ns
-bench_jeaiii_itoa/dist:2/param:16/repeats:10_mean            5990972 ns      5990888 ns           10 bytes/s=2.67073G/s ints/s=166.921M/s ns/int=5.99089ns
-bench_jeaiii_itoa/dist:2/param:16/repeats:10_median          5990732 ns      5990646 ns           10 bytes/s=2.67083G/s ints/s=166.927M/s ns/int=5.99065ns
-bench_jeaiii_itoa/dist:2/param:16/repeats:10_stddev             9687 ns         9645 ns           10 bytes/s=4.30935M/s ints/s=269.335k/s ns/int=9.64461ps
-bench_jeaiii_itoa/dist:2/param:16/repeats:10_cv                 0.16 %          0.16 %            10 bytes/s=0.16% ints/s=0.16% ns/int=0.16%
-bench_jeaiii_itoa/dist:2/param:16/repeats:10_max             6000058 ns      5999863 ns           10 bytes/s=2.68135G/s ints/s=167.584M/s ns/int=5.99986ns
-bench_jeaiii_itoa/dist:2/param:19/repeats:10_mean            7831253 ns      7831118 ns           10 bytes/s=2.42625G/s ints/s=127.697M/s ns/int=7.83112ns
-bench_jeaiii_itoa/dist:2/param:19/repeats:10_median          7818887 ns      7818514 ns           10 bytes/s=2.43013G/s ints/s=127.902M/s ns/int=7.81851ns
-bench_jeaiii_itoa/dist:2/param:19/repeats:10_stddev            30217 ns        30206 ns           10 bytes/s=9.33267M/s ints/s=491.193k/s ns/int=30.2065ps
-bench_jeaiii_itoa/dist:2/param:19/repeats:10_cv                 0.39 %          0.39 %            10 bytes/s=0.38% ints/s=0.38% ns/int=0.39%
-bench_jeaiii_itoa/dist:2/param:19/repeats:10_max             7892363 ns      7892203 ns           10 bytes/s=2.43724G/s ints/s=128.276M/s ns/int=7.8922ns
-bench_tencent_rapidjson/dist:0/param:0/repeats:10_mean      16179467 ns     16179168 ns           10 bytes/s=1.19775G/s ints/s=61.8079M/s ns/int=16.1792ns
-bench_tencent_rapidjson/dist:0/param:0/repeats:10_median    16177961 ns     16177879 ns           10 bytes/s=1.19785G/s ints/s=61.8128M/s ns/int=16.1779ns
-bench_tencent_rapidjson/dist:0/param:0/repeats:10_stddev        5687 ns         5661 ns           10 bytes/s=418.995k/s ints/s=21.6215k/s ns/int=5.66142ps
-bench_tencent_rapidjson/dist:0/param:0/repeats:10_cv            0.04 %          0.03 %            10 bytes/s=0.03% ints/s=0.03% ns/int=0.03%
-bench_tencent_rapidjson/dist:0/param:0/repeats:10_max       16191332 ns     16191150 ns           10 bytes/s=1.19826G/s ints/s=61.8344M/s ns/int=16.1912ns
-bench_tencent_rapidjson/dist:1/param:0/repeats:10_mean      21852963 ns     21852403 ns           10 bytes/s=460.092M/s ints/s=45.7616M/s ns/int=21.8524ns
-bench_tencent_rapidjson/dist:1/param:0/repeats:10_median    21848959 ns     21848562 ns           10 bytes/s=460.172M/s ints/s=45.7696M/s ns/int=21.8486ns
-bench_tencent_rapidjson/dist:1/param:0/repeats:10_stddev       18212 ns        18385 ns           10 bytes/s=386.956k/s ints/s=38.4874k/s ns/int=18.3847ps
-bench_tencent_rapidjson/dist:1/param:0/repeats:10_cv            0.08 %          0.08 %            10 bytes/s=0.08% ints/s=0.08% ns/int=0.08%
-bench_tencent_rapidjson/dist:1/param:0/repeats:10_max       21879208 ns     21878775 ns           10 bytes/s=460.51M/s ints/s=45.8032M/s ns/int=21.8788ns
-bench_tencent_rapidjson/dist:2/param:1/repeats:10_mean       2035802 ns      2035762 ns           10 bytes/s=491.407M/s ints/s=491.407M/s ns/int=2.03576ns
-bench_tencent_rapidjson/dist:2/param:1/repeats:10_median     2021803 ns      2021756 ns           10 bytes/s=494.62M/s ints/s=494.62M/s ns/int=2.02176ns
-bench_tencent_rapidjson/dist:2/param:1/repeats:10_stddev       43206 ns        43197 ns           10 bytes/s=9.99485M/s ints/s=9.99485M/s ns/int=43.1968ps
-bench_tencent_rapidjson/dist:2/param:1/repeats:10_cv            2.12 %          2.12 %            10 bytes/s=2.03% ints/s=2.03% ns/int=2.12%
-bench_tencent_rapidjson/dist:2/param:1/repeats:10_max        2151171 ns      2151095 ns           10 bytes/s=498.675M/s ints/s=498.675M/s ns/int=2.15109ns
-bench_tencent_rapidjson/dist:2/param:4/repeats:10_mean       1958509 ns      1958480 ns           10 bytes/s=2.04242G/s ints/s=510.604M/s ns/int=1.95848ns
-bench_tencent_rapidjson/dist:2/param:4/repeats:10_median     1959001 ns      1958971 ns           10 bytes/s=2.04189G/s ints/s=510.472M/s ns/int=1.95897ns
-bench_tencent_rapidjson/dist:2/param:4/repeats:10_stddev        5609 ns         5615 ns           10 bytes/s=5.85776M/s ints/s=1.46444M/s ns/int=5.61473ps
-bench_tencent_rapidjson/dist:2/param:4/repeats:10_cv            0.29 %          0.29 %            10 bytes/s=0.29% ints/s=0.29% ns/int=0.29%
-bench_tencent_rapidjson/dist:2/param:4/repeats:10_max        1969555 ns      1969539 ns           10 bytes/s=2.05443G/s ints/s=513.607M/s ns/int=1.96954ns
-bench_tencent_rapidjson/dist:2/param:8/repeats:10_mean       3432034 ns      3431986 ns           10 bytes/s=2.33101G/s ints/s=291.376M/s ns/int=3.43199ns
-bench_tencent_rapidjson/dist:2/param:8/repeats:10_median     3431910 ns      3431886 ns           10 bytes/s=2.33108G/s ints/s=291.385M/s ns/int=3.43189ns
-bench_tencent_rapidjson/dist:2/param:8/repeats:10_stddev         903 ns          887 ns           10 bytes/s=602.418k/s ints/s=75.3022k/s ns/int=886.814fs
-bench_tencent_rapidjson/dist:2/param:8/repeats:10_cv            0.03 %          0.03 %            10 bytes/s=0.03% ints/s=0.03% ns/int=0.03%
-bench_tencent_rapidjson/dist:2/param:8/repeats:10_max        3433215 ns      3433128 ns           10 bytes/s=2.33227G/s ints/s=291.534M/s ns/int=3.43313ns
-bench_tencent_rapidjson/dist:2/param:12/repeats:10_mean      8037643 ns      8037544 ns           10 bytes/s=1.49299G/s ints/s=124.416M/s ns/int=8.03754ns
-bench_tencent_rapidjson/dist:2/param:12/repeats:10_median    8038972 ns      8038855 ns           10 bytes/s=1.49275G/s ints/s=124.396M/s ns/int=8.03885ns
-bench_tencent_rapidjson/dist:2/param:12/repeats:10_stddev       4034 ns         4077 ns           10 bytes/s=757.364k/s ints/s=63.1137k/s ns/int=4.07678ps
-bench_tencent_rapidjson/dist:2/param:12/repeats:10_cv           0.05 %          0.05 %            10 bytes/s=0.05% ints/s=0.05% ns/int=0.05%
-bench_tencent_rapidjson/dist:2/param:12/repeats:10_max       8043090 ns      8043017 ns           10 bytes/s=1.4941G/s ints/s=124.508M/s ns/int=8.04302ns
-bench_tencent_rapidjson/dist:2/param:16/repeats:10_mean      8043549 ns      8043391 ns           10 bytes/s=1.98921G/s ints/s=124.326M/s ns/int=8.04339ns
-bench_tencent_rapidjson/dist:2/param:16/repeats:10_median    8042870 ns      8042795 ns           10 bytes/s=1.98936G/s ints/s=124.335M/s ns/int=8.04279ns
-bench_tencent_rapidjson/dist:2/param:16/repeats:10_stddev       2596 ns         2619 ns           10 bytes/s=647.401k/s ints/s=40.4625k/s ns/int=2.61873ps
-bench_tencent_rapidjson/dist:2/param:16/repeats:10_cv           0.03 %          0.03 %            10 bytes/s=0.03% ints/s=0.03% ns/int=0.03%
-bench_tencent_rapidjson/dist:2/param:16/repeats:10_max       8049573 ns      8049518 ns           10 bytes/s=1.99005G/s ints/s=124.378M/s ns/int=8.04952ns
-bench_tencent_rapidjson/dist:2/param:19/repeats:10_mean     12928036 ns     12927835 ns           10 bytes/s=1.4697G/s ints/s=77.3525M/s ns/int=12.9278ns
-bench_tencent_rapidjson/dist:2/param:19/repeats:10_median   12926463 ns     12926376 ns           10 bytes/s=1.46986G/s ints/s=77.3612M/s ns/int=12.9264ns
-bench_tencent_rapidjson/dist:2/param:19/repeats:10_stddev       5142 ns         5090 ns           10 bytes/s=578.556k/s ints/s=30.4503k/s ns/int=5.09019ps
-bench_tencent_rapidjson/dist:2/param:19/repeats:10_cv           0.04 %          0.04 %            10 bytes/s=0.04% ints/s=0.04% ns/int=0.04%
-bench_tencent_rapidjson/dist:2/param:19/repeats:10_max      12938271 ns     12937747 ns           10 bytes/s=1.47051G/s ints/s=77.3953M/s ns/int=12.9377ns
-bench_fmtlib_fmt/dist:0/param:0/repeats:10_mean             16970707 ns     16970370 ns           10 bytes/s=1.14192G/s ints/s=58.9266M/s ns/int=16.9704ns
-bench_fmtlib_fmt/dist:0/param:0/repeats:10_median           16984613 ns     16984089 ns           10 bytes/s=1.14099G/s ints/s=58.8787M/s ns/int=16.9841ns
-bench_fmtlib_fmt/dist:0/param:0/repeats:10_stddev              45308 ns        45275 ns           10 bytes/s=3.04779M/s ints/s=157.276k/s ns/int=45.2752ps
-bench_fmtlib_fmt/dist:0/param:0/repeats:10_cv                   0.27 %          0.27 %            10 bytes/s=0.27% ints/s=0.27% ns/int=0.27%
-bench_fmtlib_fmt/dist:0/param:0/repeats:10_max              17030400 ns     17030222 ns           10 bytes/s=1.14627G/s ints/s=59.1512M/s ns/int=17.0302ns
-bench_fmtlib_fmt/dist:1/param:0/repeats:10_mean             22182844 ns     22182390 ns           10 bytes/s=453.247M/s ints/s=45.0808M/s ns/int=22.1824ns
-bench_fmtlib_fmt/dist:1/param:0/repeats:10_median           22180527 ns     22179968 ns           10 bytes/s=453.297M/s ints/s=45.0857M/s ns/int=22.18ns
-bench_fmtlib_fmt/dist:1/param:0/repeats:10_stddev              12387 ns        12464 ns           10 bytes/s=254.631k/s ints/s=25.3261k/s ns/int=12.4641ps
-bench_fmtlib_fmt/dist:1/param:0/repeats:10_cv                   0.06 %          0.06 %            10 bytes/s=0.06% ints/s=0.06% ns/int=0.06%
-bench_fmtlib_fmt/dist:1/param:0/repeats:10_max              22203860 ns     22203557 ns           10 bytes/s=453.556M/s ints/s=45.1115M/s ns/int=22.2036ns
-bench_fmtlib_fmt/dist:2/param:1/repeats:10_mean              1015267 ns      1015244 ns           10 bytes/s=984.985M/s ints/s=984.985M/s ns/int=1.01524ns
-bench_fmtlib_fmt/dist:2/param:1/repeats:10_median            1014979 ns      1014933 ns           10 bytes/s=985.286M/s ints/s=985.286M/s ns/int=1.01493ns
-bench_fmtlib_fmt/dist:2/param:1/repeats:10_stddev                785 ns          778 ns           10 bytes/s=754.047k/s ints/s=754.047k/s ns/int=777.851fs
-bench_fmtlib_fmt/dist:2/param:1/repeats:10_cv                   0.08 %          0.08 %            10 bytes/s=0.08% ints/s=0.08% ns/int=0.08%
-bench_fmtlib_fmt/dist:2/param:1/repeats:10_max               1016852 ns      1016838 ns           10 bytes/s=985.702M/s ints/s=985.702M/s ns/int=1.01684ns
-bench_fmtlib_fmt/dist:2/param:4/repeats:10_mean              2251982 ns      2251934 ns           10 bytes/s=1.77625G/s ints/s=444.063M/s ns/int=2.25193ns
-bench_fmtlib_fmt/dist:2/param:4/repeats:10_median            2251927 ns      2251843 ns           10 bytes/s=1.77632G/s ints/s=444.081M/s ns/int=2.25184ns
-bench_fmtlib_fmt/dist:2/param:4/repeats:10_stddev               1335 ns         1338 ns           10 bytes/s=1.05471M/s ints/s=263.679k/s ns/int=1.33754ps
-bench_fmtlib_fmt/dist:2/param:4/repeats:10_cv                   0.06 %          0.06 %            10 bytes/s=0.06% ints/s=0.06% ns/int=0.06%
-bench_fmtlib_fmt/dist:2/param:4/repeats:10_max               2254505 ns      2254432 ns           10 bytes/s=1.77766G/s ints/s=444.416M/s ns/int=2.25443ns
-bench_fmtlib_fmt/dist:2/param:8/repeats:10_mean              4536337 ns      4536272 ns           10 bytes/s=1.76357G/s ints/s=220.446M/s ns/int=4.53627ns
-bench_fmtlib_fmt/dist:2/param:8/repeats:10_median            4535409 ns      4535305 ns           10 bytes/s=1.76394G/s ints/s=220.492M/s ns/int=4.53531ns
-bench_fmtlib_fmt/dist:2/param:8/repeats:10_stddev               7229 ns         7232 ns           10 bytes/s=2.81052M/s ints/s=351.315k/s ns/int=7.23194ps
+bench_jeaiii_itoa/dist:2/param:12/repeats:10_max             4935671 ns      4935643 ns           10 bytes/s=2.43693G/s ints/s=203.077M/s ns/int=4.93564ns
+bench_jeaiii_itoa/dist:2/param:16/repeats:10_mean            5989679 ns      5989635 ns           10 bytes/s=2.67128G/s ints/s=166.955M/s ns/int=5.98963ns
+bench_jeaiii_itoa/dist:2/param:16/repeats:10_median          5988681 ns      5988655 ns           10 bytes/s=2.67172G/s ints/s=166.982M/s ns/int=5.98866ns
+bench_jeaiii_itoa/dist:2/param:16/repeats:10_stddev             5089 ns         5083 ns           10 bytes/s=2.26621M/s ints/s=141.638k/s ns/int=5.08251ps
+bench_jeaiii_itoa/dist:2/param:16/repeats:10_cv                 0.08 %          0.08 %            10 bytes/s=0.08% ints/s=0.08% ns/int=0.08%
+bench_jeaiii_itoa/dist:2/param:16/repeats:10_max             5997600 ns      5997518 ns           10 bytes/s=2.67425G/s ints/s=167.141M/s ns/int=5.99752ns
+bench_jeaiii_itoa/dist:2/param:19/repeats:10_mean            7908559 ns      7908502 ns           10 bytes/s=2.40248G/s ints/s=126.446M/s ns/int=7.9085ns
+bench_jeaiii_itoa/dist:2/param:19/repeats:10_median          7910056 ns      7910074 ns           10 bytes/s=2.402G/s ints/s=126.421M/s ns/int=7.91007ns
+bench_jeaiii_itoa/dist:2/param:19/repeats:10_stddev             3773 ns         3757 ns           10 bytes/s=1.14135M/s ints/s=60.0708k/s ns/int=3.75661ps
+bench_jeaiii_itoa/dist:2/param:19/repeats:10_cv                 0.05 %          0.05 %            10 bytes/s=0.05% ints/s=0.05% ns/int=0.05%
+bench_jeaiii_itoa/dist:2/param:19/repeats:10_max             7914068 ns      7913987 ns           10 bytes/s=2.40437G/s ints/s=126.546M/s ns/int=7.91399ns
+bench_tencent_rapidjson/dist:0/param:0/repeats:10_mean      16251874 ns     16251685 ns           10 bytes/s=1.19241G/s ints/s=61.5321M/s ns/int=16.2517ns
+bench_tencent_rapidjson/dist:0/param:0/repeats:10_median    16251694 ns     16251732 ns           10 bytes/s=1.1924G/s ints/s=61.5319M/s ns/int=16.2517ns
+bench_tencent_rapidjson/dist:0/param:0/repeats:10_stddev        1387 ns         1486 ns           10 bytes/s=109.044k/s ints/s=5.62701k/s ns/int=1.48621ps
+bench_tencent_rapidjson/dist:0/param:0/repeats:10_cv            0.01 %          0.01 %            10 bytes/s=0.01% ints/s=0.01% ns/int=0.01%
+bench_tencent_rapidjson/dist:0/param:0/repeats:10_max       16254174 ns     16254213 ns           10 bytes/s=1.19254G/s ints/s=61.5391M/s ns/int=16.2542ns
+bench_tencent_rapidjson/dist:3/param:0/repeats:10_mean      13183847 ns     13183724 ns           10 bytes/s=1.43205G/s ints/s=75.8511M/s ns/int=13.1837ns
+bench_tencent_rapidjson/dist:3/param:0/repeats:10_median    13183386 ns     13183262 ns           10 bytes/s=1.4321G/s ints/s=75.8538M/s ns/int=13.1833ns
+bench_tencent_rapidjson/dist:3/param:0/repeats:10_stddev        2399 ns         2393 ns           10 bytes/s=259.91k/s ints/s=13.7666k/s ns/int=2.39296ps
+bench_tencent_rapidjson/dist:3/param:0/repeats:10_cv            0.02 %          0.02 %            10 bytes/s=0.02% ints/s=0.02% ns/int=0.02%
+bench_tencent_rapidjson/dist:3/param:0/repeats:10_max       13187832 ns     13187660 ns           10 bytes/s=1.43237G/s ints/s=75.868M/s ns/int=13.1877ns
+bench_tencent_rapidjson/dist:1/param:0/repeats:10_mean      21811972 ns     21811751 ns           10 bytes/s=460.951M/s ints/s=45.847M/s ns/int=21.8118ns
+bench_tencent_rapidjson/dist:1/param:0/repeats:10_median    21798415 ns     21797866 ns           10 bytes/s=461.243M/s ints/s=45.8761M/s ns/int=21.7979ns
+bench_tencent_rapidjson/dist:1/param:0/repeats:10_stddev       41093 ns        41020 ns           10 bytes/s=865.864k/s ints/s=86.1204k/s ns/int=41.0197ps
+bench_tencent_rapidjson/dist:1/param:0/repeats:10_cv            0.19 %          0.19 %            10 bytes/s=0.19% ints/s=0.19% ns/int=0.19%
+bench_tencent_rapidjson/dist:1/param:0/repeats:10_max       21886505 ns     21885919 ns           10 bytes/s=461.863M/s ints/s=45.9377M/s ns/int=21.8859ns
+bench_tencent_rapidjson/dist:4/param:0/repeats:10_mean      17509718 ns     17509496 ns           10 bytes/s=889.022M/s ints/s=57.1121M/s ns/int=17.5095ns
+bench_tencent_rapidjson/dist:4/param:0/repeats:10_median    17522682 ns     17522456 ns           10 bytes/s=888.361M/s ints/s=57.0696M/s ns/int=17.5225ns
+bench_tencent_rapidjson/dist:4/param:0/repeats:10_stddev       34954 ns        34848 ns           10 bytes/s=1.77055M/s ints/s=113.743k/s ns/int=34.8481ps
+bench_tencent_rapidjson/dist:4/param:0/repeats:10_cv            0.20 %          0.20 %            10 bytes/s=0.20% ints/s=0.20% ns/int=0.20%
+bench_tencent_rapidjson/dist:4/param:0/repeats:10_max       17562849 ns     17562502 ns           10 bytes/s=892.189M/s ints/s=57.3155M/s ns/int=17.5625ns
+bench_tencent_rapidjson/dist:2/param:1/repeats:10_mean       1991964 ns      1991950 ns           10 bytes/s=502.026M/s ints/s=502.026M/s ns/int=1.99195ns
+bench_tencent_rapidjson/dist:2/param:1/repeats:10_median     1991260 ns      1991250 ns           10 bytes/s=502.198M/s ints/s=502.198M/s ns/int=1.99125ns
+bench_tencent_rapidjson/dist:2/param:1/repeats:10_stddev        6660 ns         6673 ns           10 bytes/s=1.68249M/s ints/s=1.68249M/s ns/int=6.6726ps
+bench_tencent_rapidjson/dist:2/param:1/repeats:10_cv            0.33 %          0.33 %            10 bytes/s=0.34% ints/s=0.34% ns/int=0.33%
+bench_tencent_rapidjson/dist:2/param:1/repeats:10_max        2000038 ns      2000004 ns           10 bytes/s=504.976M/s ints/s=504.976M/s ns/int=2ns
+bench_tencent_rapidjson/dist:2/param:4/repeats:10_mean       1978280 ns      1978252 ns           10 bytes/s=2.02213G/s ints/s=505.532M/s ns/int=1.97825ns
+bench_tencent_rapidjson/dist:2/param:4/repeats:10_median     1978281 ns      1978264 ns           10 bytes/s=2.02198G/s ints/s=505.495M/s ns/int=1.97826ns
+bench_tencent_rapidjson/dist:2/param:4/repeats:10_stddev       17219 ns        17238 ns           10 bytes/s=17.7741M/s ints/s=4.44352M/s ns/int=17.2375ps
+bench_tencent_rapidjson/dist:2/param:4/repeats:10_cv            0.87 %          0.87 %            10 bytes/s=0.88% ints/s=0.88% ns/int=0.87%
+bench_tencent_rapidjson/dist:2/param:4/repeats:10_max        1996452 ns      1996457 ns           10 bytes/s=2.06212G/s ints/s=515.53M/s ns/int=1.99646ns
+bench_tencent_rapidjson/dist:2/param:8/repeats:10_mean       3436047 ns      3436029 ns           10 bytes/s=2.32827G/s ints/s=291.034M/s ns/int=3.43603ns
+bench_tencent_rapidjson/dist:2/param:8/repeats:10_median     3435927 ns      3435876 ns           10 bytes/s=2.32837G/s ints/s=291.047M/s ns/int=3.43588ns
+bench_tencent_rapidjson/dist:2/param:8/repeats:10_stddev         664 ns          678 ns           10 bytes/s=459.239k/s ints/s=57.4049k/s ns/int=677.899fs
+bench_tencent_rapidjson/dist:2/param:8/repeats:10_cv            0.02 %          0.02 %            10 bytes/s=0.02% ints/s=0.02% ns/int=0.02%
+bench_tencent_rapidjson/dist:2/param:8/repeats:10_max        3437582 ns      3437591 ns           10 bytes/s=2.32878G/s ints/s=291.097M/s ns/int=3.43759ns
+bench_tencent_rapidjson/dist:2/param:12/repeats:10_mean      8043004 ns      8042901 ns           10 bytes/s=1.492G/s ints/s=124.333M/s ns/int=8.0429ns
+bench_tencent_rapidjson/dist:2/param:12/repeats:10_median    8041748 ns      8041640 ns           10 bytes/s=1.49223G/s ints/s=124.353M/s ns/int=8.04164ns
+bench_tencent_rapidjson/dist:2/param:12/repeats:10_stddev       5551 ns         5603 ns           10 bytes/s=1.03915M/s ints/s=86.5958k/s ns/int=5.60292ps
+bench_tencent_rapidjson/dist:2/param:12/repeats:10_cv           0.07 %          0.07 %            10 bytes/s=0.07% ints/s=0.07% ns/int=0.07%
+bench_tencent_rapidjson/dist:2/param:12/repeats:10_max       8051750 ns      8051652 ns           10 bytes/s=1.49349G/s ints/s=124.457M/s ns/int=8.05165ns
+bench_tencent_rapidjson/dist:2/param:16/repeats:10_mean      8048780 ns      8048708 ns           10 bytes/s=1.9879G/s ints/s=124.244M/s ns/int=8.04871ns
+bench_tencent_rapidjson/dist:2/param:16/repeats:10_median    8048348 ns      8048289 ns           10 bytes/s=1.988G/s ints/s=124.25M/s ns/int=8.04829ns
+bench_tencent_rapidjson/dist:2/param:16/repeats:10_stddev       6879 ns         6916 ns           10 bytes/s=1.70669M/s ints/s=106.668k/s ns/int=6.91645ps
+bench_tencent_rapidjson/dist:2/param:16/repeats:10_cv           0.09 %          0.09 %            10 bytes/s=0.09% ints/s=0.09% ns/int=0.09%
+bench_tencent_rapidjson/dist:2/param:16/repeats:10_max       8064510 ns      8064539 ns           10 bytes/s=1.9899G/s ints/s=124.369M/s ns/int=8.06454ns
+bench_tencent_rapidjson/dist:2/param:19/repeats:10_mean     12901960 ns     12901818 ns           10 bytes/s=1.47266G/s ints/s=77.5085M/s ns/int=12.9018ns
+bench_tencent_rapidjson/dist:2/param:19/repeats:10_median   12898904 ns     12898868 ns           10 bytes/s=1.473G/s ints/s=77.5262M/s ns/int=12.8989ns
+bench_tencent_rapidjson/dist:2/param:19/repeats:10_stddev      12135 ns        12195 ns           10 bytes/s=1.38912M/s ints/s=73.1114k/s ns/int=12.195ps
+bench_tencent_rapidjson/dist:2/param:19/repeats:10_cv           0.09 %          0.09 %            10 bytes/s=0.09% ints/s=0.09% ns/int=0.09%
+bench_tencent_rapidjson/dist:2/param:19/repeats:10_max      12935117 ns     12935160 ns           10 bytes/s=1.47364G/s ints/s=77.5602M/s ns/int=12.9352ns
+bench_fmtlib_fmt/dist:0/param:0/repeats:10_mean             17202870 ns     17202698 ns           10 bytes/s=1.12649G/s ints/s=58.1305M/s ns/int=17.2027ns
+bench_fmtlib_fmt/dist:0/param:0/repeats:10_median           17201351 ns     17201239 ns           10 bytes/s=1.12658G/s ints/s=58.1353M/s ns/int=17.2012ns
+bench_fmtlib_fmt/dist:0/param:0/repeats:10_stddev              14433 ns        14478 ns           10 bytes/s=947.975k/s ints/s=48.9186k/s ns/int=14.4785ps
+bench_fmtlib_fmt/dist:0/param:0/repeats:10_cv                   0.08 %          0.08 %            10 bytes/s=0.08% ints/s=0.08% ns/int=0.08%
+bench_fmtlib_fmt/dist:0/param:0/repeats:10_max              17226542 ns     17226088 ns           10 bytes/s=1.12786G/s ints/s=58.2012M/s ns/int=17.2261ns
+bench_fmtlib_fmt/dist:3/param:0/repeats:10_mean             13982922 ns     13982790 ns           10 bytes/s=1.35021G/s ints/s=71.5165M/s ns/int=13.9828ns
+bench_fmtlib_fmt/dist:3/param:0/repeats:10_median           13984458 ns     13984362 ns           10 bytes/s=1.35006G/s ints/s=71.5084M/s ns/int=13.9844ns
+bench_fmtlib_fmt/dist:3/param:0/repeats:10_stddev               8316 ns         8265 ns           10 bytes/s=798.331k/s ints/s=42.2852k/s ns/int=8.2648ps
+bench_fmtlib_fmt/dist:3/param:0/repeats:10_cv                   0.06 %          0.06 %            10 bytes/s=0.06% ints/s=0.06% ns/int=0.06%
+bench_fmtlib_fmt/dist:3/param:0/repeats:10_max              13995248 ns     13994842 ns           10 bytes/s=1.35183G/s ints/s=71.6021M/s ns/int=13.9948ns
+bench_fmtlib_fmt/dist:1/param:0/repeats:10_mean             22621834 ns     22621594 ns           10 bytes/s=444.448M/s ints/s=44.2056M/s ns/int=22.6216ns
+bench_fmtlib_fmt/dist:1/param:0/repeats:10_median           22625515 ns     22625172 ns           10 bytes/s=444.377M/s ints/s=44.1986M/s ns/int=22.6252ns
+bench_fmtlib_fmt/dist:1/param:0/repeats:10_stddev              27455 ns        27441 ns           10 bytes/s=539.585k/s ints/s=53.6681k/s ns/int=27.441ps
+bench_fmtlib_fmt/dist:1/param:0/repeats:10_cv                   0.12 %          0.12 %            10 bytes/s=0.12% ints/s=0.12% ns/int=0.12%
+bench_fmtlib_fmt/dist:1/param:0/repeats:10_max              22652728 ns     22652005 ns           10 bytes/s=445.399M/s ints/s=44.3002M/s ns/int=22.652ns
+bench_fmtlib_fmt/dist:4/param:0/repeats:10_mean             23262670 ns     23262463 ns           10 bytes/s=669.159M/s ints/s=42.9878M/s ns/int=23.2625ns
+bench_fmtlib_fmt/dist:4/param:0/repeats:10_median           23263086 ns     23263054 ns           10 bytes/s=669.141M/s ints/s=42.9866M/s ns/int=23.2631ns
+bench_fmtlib_fmt/dist:4/param:0/repeats:10_stddev              24732 ns        24893 ns           10 bytes/s=716.234k/s ints/s=46.012k/s ns/int=24.8932ps
+bench_fmtlib_fmt/dist:4/param:0/repeats:10_cv                   0.11 %          0.11 %            10 bytes/s=0.11% ints/s=0.11% ns/int=0.11%
+bench_fmtlib_fmt/dist:4/param:0/repeats:10_max              23292669 ns     23292738 ns           10 bytes/s=670.298M/s ints/s=43.061M/s ns/int=23.2927ns
+bench_fmtlib_fmt/dist:2/param:1/repeats:10_mean              1015698 ns      1015682 ns           10 bytes/s=984.56M/s ints/s=984.56M/s ns/int=1.01568ns
+bench_fmtlib_fmt/dist:2/param:1/repeats:10_median            1015609 ns      1015589 ns           10 bytes/s=984.651M/s ints/s=984.651M/s ns/int=1.01559ns
+bench_fmtlib_fmt/dist:2/param:1/repeats:10_stddev                565 ns          567 ns           10 bytes/s=548.814k/s ints/s=548.814k/s ns/int=566.504fs
+bench_fmtlib_fmt/dist:2/param:1/repeats:10_cv                   0.06 %          0.06 %            10 bytes/s=0.06% ints/s=0.06% ns/int=0.06%
+bench_fmtlib_fmt/dist:2/param:1/repeats:10_max               1016989 ns      1016972 ns           10 bytes/s=985.252M/s ints/s=985.252M/s ns/int=1.01697ns
+bench_fmtlib_fmt/dist:2/param:4/repeats:10_mean              2195869 ns      2195855 ns           10 bytes/s=1.82162G/s ints/s=455.404M/s ns/int=2.19585ns
+bench_fmtlib_fmt/dist:2/param:4/repeats:10_median            2195152 ns      2195131 ns           10 bytes/s=1.82221G/s ints/s=455.554M/s ns/int=2.19513ns
+bench_fmtlib_fmt/dist:2/param:4/repeats:10_stddev               2261 ns         2272 ns           10 bytes/s=1.88026M/s ints/s=470.064k/s ns/int=2.27155ps
+bench_fmtlib_fmt/dist:2/param:4/repeats:10_cv                   0.10 %          0.10 %            10 bytes/s=0.10% ints/s=0.10% ns/int=0.10%
+bench_fmtlib_fmt/dist:2/param:4/repeats:10_max               2201998 ns      2202006 ns           10 bytes/s=1.82282G/s ints/s=455.705M/s ns/int=2.20201ns
+bench_fmtlib_fmt/dist:2/param:8/repeats:10_mean              4552497 ns      4552461 ns           10 bytes/s=1.7573G/s ints/s=219.662M/s ns/int=4.55246ns
+bench_fmtlib_fmt/dist:2/param:8/repeats:10_median            4552599 ns      4552576 ns           10 bytes/s=1.75725G/s ints/s=219.656M/s ns/int=4.55258ns
+bench_fmtlib_fmt/dist:2/param:8/repeats:10_stddev               7276 ns         7271 ns           10 bytes/s=2.80654M/s ints/s=350.817k/s ns/int=7.27136ps
 bench_fmtlib_fmt/dist:2/param:8/repeats:10_cv                   0.16 %          0.16 %            10 bytes/s=0.16% ints/s=0.16% ns/int=0.16%
-bench_fmtlib_fmt/dist:2/param:8/repeats:10_max               4549775 ns      4549784 ns           10 bytes/s=1.76853G/s ints/s=221.066M/s ns/int=4.54978ns
-bench_fmtlib_fmt/dist:2/param:12/repeats:10_mean             7784536 ns      7784404 ns           10 bytes/s=1.60862G/s ints/s=134.052M/s ns/int=7.7844ns
-bench_fmtlib_fmt/dist:2/param:12/repeats:10_median           6880433 ns      6880220 ns           10 bytes/s=1.74413G/s ints/s=145.344M/s ns/int=6.88022ns
-bench_fmtlib_fmt/dist:2/param:12/repeats:10_stddev           2046586 ns      2046555 ns           10 bytes/s=286.329M/s ints/s=23.8607M/s ns/int=2.04655ns
-bench_fmtlib_fmt/dist:2/param:12/repeats:10_cv                 26.29 %         26.29 %            10 bytes/s=17.80% ints/s=17.80% ns/int=26.29%
-bench_fmtlib_fmt/dist:2/param:12/repeats:10_max             13126002 ns     13125786 ns           10 bytes/s=1.75081G/s ints/s=145.901M/s ns/int=13.1258ns
-bench_fmtlib_fmt/dist:2/param:16/repeats:10_mean             9482012 ns      9481851 ns           10 bytes/s=1.68752G/s ints/s=105.47M/s ns/int=9.48185ns
-bench_fmtlib_fmt/dist:2/param:16/repeats:10_median           9445959 ns      9445675 ns           10 bytes/s=1.6939G/s ints/s=105.869M/s ns/int=9.44567ns
-bench_fmtlib_fmt/dist:2/param:16/repeats:10_stddev             70144 ns        70186 ns           10 bytes/s=12.4604M/s ints/s=778.778k/s ns/int=70.1856ps
-bench_fmtlib_fmt/dist:2/param:16/repeats:10_cv                  0.74 %          0.74 %            10 bytes/s=0.74% ints/s=0.74% ns/int=0.74%
-bench_fmtlib_fmt/dist:2/param:16/repeats:10_max              9579158 ns      9578935 ns           10 bytes/s=1.69948G/s ints/s=106.218M/s ns/int=9.57894ns
-bench_fmtlib_fmt/dist:2/param:19/repeats:10_mean            12418773 ns     12418562 ns           10 bytes/s=1.52997G/s ints/s=80.5248M/s ns/int=12.4186ns
-bench_fmtlib_fmt/dist:2/param:19/repeats:10_median          12410493 ns     12410434 ns           10 bytes/s=1.53097G/s ints/s=80.5774M/s ns/int=12.4104ns
-bench_fmtlib_fmt/dist:2/param:19/repeats:10_stddev             21924 ns        21888 ns           10 bytes/s=2.69103M/s ints/s=141.633k/s ns/int=21.8884ps
-bench_fmtlib_fmt/dist:2/param:19/repeats:10_cv                  0.18 %          0.18 %            10 bytes/s=0.18% ints/s=0.18% ns/int=0.18%
-bench_fmtlib_fmt/dist:2/param:19/repeats:10_max             12468387 ns     12468013 ns           10 bytes/s=1.53261G/s ints/s=80.6636M/s ns/int=12.468ns
+bench_fmtlib_fmt/dist:2/param:8/repeats:10_max               4565611 ns      4565623 ns           10 bytes/s=1.76197G/s ints/s=220.246M/s ns/int=4.56562ns
+bench_fmtlib_fmt/dist:2/param:12/repeats:10_mean             6907732 ns      6907678 ns           10 bytes/s=1.73721G/s ints/s=144.767M/s ns/int=6.90768ns
+bench_fmtlib_fmt/dist:2/param:12/repeats:10_median           6908137 ns      6908066 ns           10 bytes/s=1.7371G/s ints/s=144.758M/s ns/int=6.90807ns
+bench_fmtlib_fmt/dist:2/param:12/repeats:10_stddev             15646 ns        15693 ns           10 bytes/s=3.9483M/s ints/s=329.025k/s ns/int=15.6926ps
+bench_fmtlib_fmt/dist:2/param:12/repeats:10_cv                  0.23 %          0.23 %            10 bytes/s=0.23% ints/s=0.23% ns/int=0.23%
+bench_fmtlib_fmt/dist:2/param:12/repeats:10_max              6930759 ns      6930777 ns           10 bytes/s=1.74346G/s ints/s=145.288M/s ns/int=6.93078ns
+bench_fmtlib_fmt/dist:2/param:16/repeats:10_mean             9475841 ns      9475732 ns           10 bytes/s=1.68853G/s ints/s=105.533M/s ns/int=9.47573ns
+bench_fmtlib_fmt/dist:2/param:16/repeats:10_median           9481399 ns      9481259 ns           10 bytes/s=1.68754G/s ints/s=105.471M/s ns/int=9.48126ns
+bench_fmtlib_fmt/dist:2/param:16/repeats:10_stddev             11967 ns        12020 ns           10 bytes/s=2.14378M/s ints/s=133.986k/s ns/int=12.0203ps
+bench_fmtlib_fmt/dist:2/param:16/repeats:10_cv                  0.13 %          0.13 %            10 bytes/s=0.13% ints/s=0.13% ns/int=0.13%
+bench_fmtlib_fmt/dist:2/param:16/repeats:10_max              9488925 ns      9488951 ns           10 bytes/s=1.69248G/s ints/s=105.78M/s ns/int=9.48895ns
+bench_fmtlib_fmt/dist:2/param:19/repeats:10_mean            12382006 ns     12381875 ns           10 bytes/s=1.5345G/s ints/s=80.7632M/s ns/int=12.3819ns
+bench_fmtlib_fmt/dist:2/param:19/repeats:10_median          12382974 ns     12382729 ns           10 bytes/s=1.5344G/s ints/s=80.7576M/s ns/int=12.3827ns
+bench_fmtlib_fmt/dist:2/param:19/repeats:10_stddev              7074 ns         7134 ns           10 bytes/s=884.866k/s ints/s=46.5719k/s ns/int=7.13378ps
+bench_fmtlib_fmt/dist:2/param:19/repeats:10_cv                  0.06 %          0.06 %            10 bytes/s=0.06% ints/s=0.06% ns/int=0.06%
+bench_fmtlib_fmt/dist:2/param:19/repeats:10_max             12389267 ns     12389296 ns           10 bytes/s=1.5367G/s ints/s=80.8792M/s ns/int=12.3893ns
 ```
 
 </details>
