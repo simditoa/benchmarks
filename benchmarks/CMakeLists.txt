@@ -20,15 +20,28 @@ if(NOT MSVC)
 endif()
 
 # ---- simditoa ----
-if(BENCHMARK_BUILD_SIMDITOA)
+# Both simditoa contenders share the same fetched library; declare it once
+# if either is enabled.
+if(BENCHMARK_BUILD_SIMDITOA OR BENCHMARK_BUILD_SIMDITOA_HOMOGENEOUS)
   FetchContent_Declare(
       simditoa
       GIT_REPOSITORY https://github.com/simditoa/simditoa.git
       GIT_TAG main
   )
   FetchContent_MakeAvailable(simditoa)
-  target_sources(itoa_benchmarks PRIVATE simditoa.cpp)
   target_link_libraries(itoa_benchmarks PRIVATE simditoa::simditoa)
+endif()
+
+if(BENCHMARK_BUILD_SIMDITOA)
+  target_sources(itoa_benchmarks PRIVATE simditoa.cpp)
+endif()
+
+if(BENCHMARK_BUILD_SIMDITOA_HOMOGENEOUS)
+  target_sources(itoa_benchmarks PRIVATE simditoa_homogeneous.cpp)
+endif()
+
+if(BENCHMARK_BUILD_BATCH AND (BENCHMARK_BUILD_SIMDITOA OR BENCHMARK_BUILD_SIMDITOA_HOMOGENEOUS))
+  target_sources(itoa_benchmarks PRIVATE simditoa_batch.cpp)
 endif()
 
 # ---- null (no extra deps) ----
@@ -39,6 +52,9 @@ endif()
 # ---- std::to_chars (no extra deps) ----
 if(BENCHMARK_BUILD_STD_TO_CHARS)
   target_sources(itoa_benchmarks PRIVATE std_to_chars.cpp)
+  if(BENCHMARK_BUILD_BATCH)
+    target_sources(itoa_benchmarks PRIVATE std_to_chars_batch.cpp)
+  endif()
 endif()
 
 # ---- yy_itoa (from c_numconv_benchmark) ----
@@ -54,6 +70,9 @@ if(BENCHMARK_BUILD_YY_ITOA)
   set_target_properties(yy_itoa PROPERTIES C_STANDARD 99 POSITION_INDEPENDENT_CODE ON)
   target_sources(itoa_benchmarks PRIVATE yy_itoa.cpp)
   target_link_libraries(itoa_benchmarks PRIVATE yy_itoa)
+  if(BENCHMARK_BUILD_BATCH)
+    target_sources(itoa_benchmarks PRIVATE yy_itoa_batch.cpp)
+  endif()
 endif()
 
 # ---- jeaiii::to_text_from_integer ----
@@ -68,6 +87,9 @@ if(BENCHMARK_BUILD_JEAIII_ITOA)
   target_include_directories(jeaiii_itoa_iface INTERFACE ${jeaiii_itoa_SOURCE_DIR}/include/itoa)
   target_sources(itoa_benchmarks PRIVATE jeaiii_itoa.cpp)
   target_link_libraries(itoa_benchmarks PRIVATE jeaiii_itoa_iface)
+  if(BENCHMARK_BUILD_BATCH)
+    target_sources(itoa_benchmarks PRIVATE jeaiii_itoa_batch.cpp)
+  endif()
 endif()
 
 # ---- rapidjson (header-only; skip its CMake) ----
@@ -83,6 +105,9 @@ if(BENCHMARK_BUILD_TENCENT_RAPIDJSON)
   target_include_directories(rapidjson_iface INTERFACE ${rapidjson_SOURCE_DIR}/include)
   target_sources(itoa_benchmarks PRIVATE tencent_rapidjson.cpp)
   target_link_libraries(itoa_benchmarks PRIVATE rapidjson_iface)
+  if(BENCHMARK_BUILD_BATCH)
+    target_sources(itoa_benchmarks PRIVATE tencent_rapidjson_batch.cpp)
+  endif()
 endif()
 
 # ---- fmt::format_int ----
@@ -98,4 +123,7 @@ if(BENCHMARK_BUILD_FMTLIB_FMT)
   FetchContent_MakeAvailable(fmt)
   target_sources(itoa_benchmarks PRIVATE fmtlib_fmt.cpp)
   target_link_libraries(itoa_benchmarks PRIVATE fmt::fmt)
+  if(BENCHMARK_BUILD_BATCH)
+    target_sources(itoa_benchmarks PRIVATE fmtlib_fmt_batch.cpp)
+  endif()
 endif()

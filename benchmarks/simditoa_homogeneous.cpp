@@ -1,10 +1,6 @@
-// Foundation contender file. Every other contender mirrors this template:
-//   1. include bench_data.hpp + the contender's header
-//   2. write one bench_<name>(State&) function
-//   3. call BENCH_REGISTER_ALL(bench_<name>)
-//
-// Heterogeneous variant (paper §5.4) — also what simditoa::to_chars
-// dispatches to by default.
+// Homogeneous variant of simditoa (paper §5.5): per-length dispatcher,
+// unmasked direct stores. Same single-value loop as every other contender
+// so the comparison stays apples-to-apples.
 
 #include "bench_data.hpp"
 #include "simditoa.h"
@@ -13,7 +9,7 @@
 
 namespace {
 
-void bench_simditoa_to_chars_heterogeneous(::benchmark::State &state) {
+void bench_simditoa_to_chars_homogeneous(::benchmark::State &state) {
   const auto &values = ::bench::get_values(static_cast<int>(state.range(0)),
                                            static_cast<int>(state.range(1)));
   char buf[::bench::BUF_SIZE];
@@ -21,7 +17,7 @@ void bench_simditoa_to_chars_heterogeneous(::benchmark::State &state) {
   for (auto _ : state) {
     std::size_t iter_bytes = 0;
     for (const auto &v : values) {
-      iter_bytes += simditoa::to_chars_heterogeneous(v, buf);
+      iter_bytes += simditoa::to_chars_homogeneous(v, buf);
       ::benchmark::DoNotOptimize(buf);
     }
     ::benchmark::ClobberMemory();
@@ -32,4 +28,4 @@ void bench_simditoa_to_chars_heterogeneous(::benchmark::State &state) {
 
 }  // namespace
 
-BENCH_REGISTER_ALL(bench_simditoa_to_chars_heterogeneous);
+BENCH_REGISTER_ALL(bench_simditoa_to_chars_homogeneous);

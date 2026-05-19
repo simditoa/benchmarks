@@ -10,15 +10,16 @@ To produce a fresh run, trigger the **Run benchmark on GCP** workflow under GitH
 
 ## Contenders
 
-| Option                              | Implementation                                  |
-| ----------------------------------- | ----------------------------------------------- |
-| `BENCHMARK_BUILD_SIMDITOA`          | `simditoa::to_chars`                            |
-| `BENCHMARK_BUILD_NULL`              | no-op baseline (loop overhead only)             |
-| `BENCHMARK_BUILD_STD_TO_CHARS`      | `std::to_chars`                                 |
-| `BENCHMARK_BUILD_YY_ITOA`           | `itoa_i64_yy` from ibireme/c_numconv_benchmark  |
-| `BENCHMARK_BUILD_JEAIII_ITOA`       | `jeaiii::to_text_from_integer`                  |
-| `BENCHMARK_BUILD_TENCENT_RAPIDJSON` | `rapidjson::internal::i64toa` (branchlut)       |
-| `BENCHMARK_BUILD_FMTLIB_FMT`        | `fmt::format_int`                               |
+| Option                                 | Implementation                                                                      |
+| -------------------------------------- | ----------------------------------------------------------------------------------- |
+| `BENCHMARK_BUILD_SIMDITOA`             | `simditoa::to_chars_heterogeneous` (also the default `simditoa::to_chars` dispatch) |
+| `BENCHMARK_BUILD_SIMDITOA_HOMOGENEOUS` | `simditoa::to_chars_homogeneous`                                                    |
+| `BENCHMARK_BUILD_NULL`                 | no-op baseline (loop overhead only)                                                 |
+| `BENCHMARK_BUILD_STD_TO_CHARS`         | `std::to_chars`                                                                     |
+| `BENCHMARK_BUILD_YY_ITOA`              | `itoa_i64_yy` from ibireme/c_numconv_benchmark                                      |
+| `BENCHMARK_BUILD_JEAIII_ITOA`          | `jeaiii::to_text_from_integer`                                                      |
+| `BENCHMARK_BUILD_TENCENT_RAPIDJSON`    | `rapidjson::internal::i64toa` (branchlut)                                           |
+| `BENCHMARK_BUILD_FMTLIB_FMT`           | `fmt::format_int`                                                                   |
 
 Every contender is enabled by default. Disable any with `-DBENCHMARK_BUILD_<NAME>=OFF`.
 
@@ -41,6 +42,12 @@ Each contender runs against the same set of int64 inputs, generated once and cac
 - `dist=FIXED, len=N` - positive values with exactly `N` decimal digits, swept across `1, 4, 8, 12, 16, 19`.
 
 Reported counters: `ints/s`, `bytes/s`, `ns/int`. Each configuration is repeated 10 times; only the max-throughput aggregate is shown.
+
+### Batch sweep
+
+`BENCHMARK_BUILD_BATCH` (ON by default) adds a parallel `*_batch` benchmark for every enabled contender. Each batch contender converts N values into N **per-element** output buffers (a contiguous arena with one slot per value), matching the I/O shape of `simditoa::to_chars_batch`. The simditoa batch contender drives the new `to_chars_batch` API with default `BatchOptions` (auto variant selection via input sampling); every other contender loops its single-value function with the same per-element writes. This makes the conversion logic the only thing that differs across batch contenders.
+
+The batch sweep skips the signed distributions (`UNIFORM`, `LOG`) because `to_chars_batch` is `uint64_t`-only. The single-value sweep continues to cover those.
 
 The headline scoreboard in `RESULTS.md` is the geometric mean of `ints/s` across the realistic subset `{UNIFORM_POS, LOG_HEAVY, FIXED:12, FIXED:16, FIXED:19}`. Short-digit FIXED `{1, 4, 8}` and signed UNIFORM are reported separately. simditoa's small-value kernel (inputs `< 10^8`) pays a constant SIMD setup cost regardless of digit count, so scalar methods are faster at 1-8 digit outputs by algorithm design; that regression is real but is not where production int64 serialization lives.
 
